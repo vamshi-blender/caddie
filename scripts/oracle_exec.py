@@ -111,7 +111,13 @@ def main() -> int:
         default=str(DEFAULT_CONFIG),
         help="Path to JSON config file",
     )
-    args = parser.parse_args()
+    args, extras = parser.parse_known_args()
+
+    if extras:
+        if args.query:
+            args.query = " ".join([args.query, *extras])
+        else:
+            parser.error(f"unrecognized arguments: {' '.join(extras)}")
 
     try:
         config = load_config(Path(args.config))

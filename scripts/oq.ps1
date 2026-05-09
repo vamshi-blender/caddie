@@ -3,21 +3,46 @@
 param(
     [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
     [string[]]$QueryParts,
+    [Parameter(ValueFromPipeline = $true)]
+    [string]$InputObject,
     [string]$Config
 )
 
+begin {
+    $pipedLines = New-Object System.Collections.Generic.List[string]
+}
+
+process {
+    if ($null -ne $InputObject) {
+        $pipedLines.Add($InputObject)
+    }
+}
+
+end {
 if (-not $Config) {
     $Config = Join-Path $PSScriptRoot "oracle.config.local.json"
 }
 
-if (-not $QueryParts -and -not $input) {
+$stdinQuery = ""
+if ($pipedLines.Count -eq 0 -and [Console]::IsInputRedirected) {
+    $stdinQuery = [Console]::In.ReadToEnd().Trim()
+}
+
+if ((-not $QueryParts -or $QueryParts.Count -eq 0) -and $pipedLines.Count -eq 0 -and -not $stdinQuery) {
     throw "No SQL provided."
 }
 
-$query = if ($QueryParts) {
+$query = if ($QueryParts -and $QueryParts.Count -gt 0) {
     $QueryParts -join ' '
+} elseif ($stdinQuery) {
+    $stdinQuery
 } else {
-    ($input | Out-String).Trim()
+    ($pipedLines -join [Environment]::NewLine).Trim()
 }
 
-python (Join-Path $PSScriptRoot "oracle_exec.py") -c $Config -q $query
+if (-not $query) {
+    throw "SQL is empty."
+}
+
+$query | python (Join-Path $PSScriptRoot "oracle_exec.py") -c $Config
+}
