@@ -13,11 +13,13 @@ Without classification:
 - AI spends 15-20% of queries discovering table existence
 - 25% of failures come from joining to wrong/empty tables
 - Each question requires re-discovering same table patterns
+- Discovery overhead: 8-10 sequential schema queries per question (16-20 seconds)
 
 With classification:
 - Table decisions pre-made: use REQUIRED or MAYBE, skip NOT-REQUIRED
 - Join failures prevented: avoid empty lookups, broken relationships
 - Query time reduced by 60-80%
+- **NEW:** Join hints enable Phase 2 parallel discovery (discovery time drops from 8-10 sequential queries to 4 parallel queries = 2-3 second wait instead of 16-20 seconds)
 
 ---
 
@@ -109,7 +111,7 @@ Test classification with sample business questions:
 
 **Action:** If a test question breaks due to a classified-out table, reclassify it to MAYBE.
 
-### Step 6: Document All Decisions (Grouped by Module)
+### Step 6: Document All Decisions (Grouped by Module) + Join Hints
 
 Create a markdown document organized by **business modules**, not alphabetically. This makes it easier for users/AI to find tables relevant to their questions.
 
@@ -120,7 +122,7 @@ Create a markdown document organized by **business modules**, not alphabetically
 
 **Document Structure:**
 
-For EACH module (MCC, RBS, etc.), organize tables by classification:
+For EACH module (MCC, RBS, etc.), organize tables by classification, **AND** document join hints for Phase 2:
 
 ```markdown
 # Database Table Classification by Module
@@ -128,19 +130,19 @@ For EACH module (MCC, RBS, etc.), organize tables by classification:
 ## MODULE 1: MCC (Metro Customer Care)
 
 ### REQUIRED Tables
-| Table Name | Row Count | Purpose | Primary Use |
-|---|---|---|---|
-| MCC_GRIEVANCES | 25M+ | Main complaint/grievance data | Filter by date, type, status, consumer |
-| MDM_MCC_COMPTYPE | 15K | Complaint type lookup | Map GRIEVANCETYPEID to type names |
-| MCC_CONSUMERS_CONNECTIONS | 3M | Consumer-connection link | Link consumer to service connections |
-| ... | ... | ... | ... |
+| Table Name | Row Count | Purpose | Primary Use | Typical Join Targets |
+|---|---|---|---|---|
+| MCC_GRIEVANCES | 25M+ | Main complaint/grievance data | Filter by date, type, status, consumer | MDM_MCC_COMPTYPE, MDM_SHR_SERVICECONN, MDM_SHR_CONSUMER, LKP_GRIEVSTATUS |
+| MDM_MCC_COMPTYPE | 15K | Complaint type lookup | Map GRIEVANCETYPEID to type names | (Lookup, no joins needed) |
+| MCC_CONSUMERS_CONNECTIONS | 3M | Consumer-connection link | Link consumer to service connections | MDM_SHR_SERVICECONN, MDM_SHR_CONSUMER |
+| ... | ... | ... | ... | ... |
 
 ### MAYBE Tables
-| Table Name | Condition to Use | Purpose |
-|---|---|---|
-| MCC_TANKER_RATES | When analyzing tanker costs | Tanker pricing by capacity/category |
-| MCC_TANKERGRVPOLICY | Rare: specific tanker policy analysis | Tanker grievance policies |
-| ... | ... | ... |
+| Table Name | Condition to Use | Purpose | Typical Join Targets |
+|---|---|---|---|
+| MCC_TANKER_RATES | When analyzing tanker costs | Tanker pricing by capacity/category | (Lookup table) |
+| MCC_TANKERGRVPOLICY | Rare: specific tanker policy analysis | Tanker grievance policies | MCC_GRIEVANCES |
+| ... | ... | ... | ... |
 
 ### NOT-REQUIRED Tables
 | Table Name | Reason Excluded | Category |
@@ -149,26 +151,36 @@ For EACH module (MCC, RBS, etc.), organize tables by classification:
 | MCC_TANKERGRIEVANCE_TEMP | Temporary working table | Temp/staging |
 | ... | ... | ... |
 
+### Join Hints for Phase 2 Discovery (MCC Module)
+**Use these to batch-query related tables in parallel:**
+
+| Main Table | Typical Join Targets | Why They're Related |
+|---|---|---|
+| MCC_GRIEVANCES | MDM_MCC_COMPTYPE, MDM_SHR_SERVICECONN, MDM_SHR_CONSUMER, LKP_GRIEVSTATUS | All required for complete grievance detail (type names, consumer names, status descriptions) |
+| MDM_SHR_SERVICECONN | MDM_SHR_CONSUMER, MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV, CONSUMER_ALTERNATE_CONTACT | All required for complete connection/location/contact detail |
+| CONSUMER_ALTERNATE_CONTACT | MDM_SHR_SERVICECONN, MDM_SHR_CONSUMER | Link back to primary consumer/connection info |
+
 ---
 
 ## MODULE 2: RBS (Revenue Billing System)
 
 ### REQUIRED Tables
-| Table Name | Row Count | Purpose | Primary Use |
-|---|---|---|---|
-| RBS_DISCONN_REQUEST | 5M+ | Disconnection request master | Filter by date, status, consumer |
-| RBS_CONNECTIONLEDGER_MONTHLY | 50M+ | Monthly billing transactions | Analyze payment activity, bills |
-| MDM_SHR_SERVICECONN | 1.4M | Service connection master | Map CAN to consumer, location, status |
-| MDM_SHR_CONSUMER | 1.5M | Consumer master details | Get consumer names, contacts |
-| ... | ... | ... | ... |
+| Table Name | Row Count | Purpose | Primary Use | Typical Join Targets |
+|---|---|---|---|---|
+| RBS_DISCONN_REQUEST | 5M+ | Disconnection request master | Filter by date, status, consumer | RBS_DISCONNATION_ORDER, MDM_SHR_SERVICECONN, LKP_DISCONN_STATUS |
+| RBS_CONNECTIONLEDGER_MONTHLY | 50M+ | Monthly billing transactions | Analyze payment activity, bills | MDM_SHR_SERVICECONN |
+| MDM_SHR_SERVICECONN | 1.4M | Service connection master | Map CAN to consumer, location, status | MDM_SHR_CONSUMER, MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV |
+| MDM_SHR_CONSUMER | 1.5M | Consumer master details | Get consumer names, contacts | CONSUMER_ALTERNATE_CONTACT |
+| ... | ... | ... | ... | ... |
 
 ### MAYBE Tables
-| Table Name | Condition to Use | Purpose |
-|---|---|---|
-| LKP_CONNECTION_STATUS | When analyzing connection statuses | Status codes and meanings |
-| LKP_DISCONN_STATUS | When analyzing disconnection statuses | Disconnection status codes |
-| MDM_SHR_DIVISION | When analyzing location/division data | Division name lookup |
-| ... | ... | ... |
+| Table Name | Condition to Use | Purpose | Typical Join Targets |
+|---|---|---|---|
+| LKP_CONNECTION_STATUS | When analyzing connection statuses | Status codes and meanings | (Lookup) |
+| LKP_DISCONN_STATUS | When analyzing disconnection statuses | Disconnection status codes | RBS_DISCONN_REQUEST |
+| MDM_SHR_DIVISION | When analyzing location/division data | Division name lookup | (Lookup, but may be empty - check first) |
+| RBS_DISCONNATION_ORDER | When linking disconnections to orders | Order details for disconnection request | RBS_DISCONN_REQUEST, MDM_SHR_SERVICECONN |
+| ... | ... | ... | ... |
 
 ### NOT-REQUIRED Tables
 | Table Name | Reason Excluded | Category |
@@ -177,31 +189,48 @@ For EACH module (MCC, RBS, etc.), organize tables by classification:
 | RBS_DISCONN_PROGRAM | Legacy program tracking | Legacy |
 | ... | ... | ... |
 
+### Join Hints for Phase 2 Discovery (RBS Module)
+**Use these to batch-query related tables in parallel:**
+
+| Main Table | Typical Join Targets | Why They're Related |
+|---|---|---|
+| RBS_DISCONN_REQUEST | RBS_DISCONNATION_ORDER, MDM_SHR_SERVICECONN, LKP_DISCONN_STATUS | All required for complete disconnection detail (orders, connection info, status names) |
+| RBS_CONNECTIONLEDGER_MONTHLY | MDM_SHR_SERVICECONN, MDM_SHR_CONSUMER | Required to map billing transaction to consumer |
+| MDM_SHR_SERVICECONN | MDM_SHR_CONSUMER, MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV | Required for consumer and location details |
+
 ---
 
 ## MODULE 3: SHARED/CROSS-MODULE
 
 ### REQUIRED Tables
-| Table Name | Row Count | Purpose | Primary Use |
-|---|---|---|---|
-| MDM_SHR_SERVICECONN | 1.4M | Service connection master | Core link between all modules |
-| MDM_SHR_CONSUMER | 1.5M | Consumer master | Customer information |
-| MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV | 10K | Location hierarchy | Circle, division, area mapping |
-| CONSUMER_ALTERNATE_CONTACT | 2M | Alternate contact details | Additional phone numbers |
-| ... | ... | ... | ... |
+| Table Name | Row Count | Purpose | Primary Use | Typical Join Targets |
+|---|---|---|---|---|
+| MDM_SHR_SERVICECONN | 1.4M | Service connection master | Core link between all modules | MDM_SHR_CONSUMER, MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV, CONSUMER_ALTERNATE_CONTACT |
+| MDM_SHR_CONSUMER | 1.5M | Consumer master | Customer information | CONSUMER_ALTERNATE_CONTACT |
+| MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV | 10K | Location hierarchy | Circle, division, area mapping | (Lookup view, but WARNING: area-grain - use with DISTINCT) |
+| CONSUMER_ALTERNATE_CONTACT | 2M | Alternate contact details | Additional phone numbers | MDM_SHR_SERVICECONN, MDM_SHR_CONSUMER |
+| ... | ... | ... | ... | ... |
 
 ### MAYBE Tables
-| Table Name | Condition to Use | Purpose |
-|---|---|---|
-| MDM_SHR_CONSUMERHISTORY | For historical consumer data | Past consumer information |
-| MDM_SHR_SERVICECONNHISTORY | For historical connection data | Past connection information |
-| ... | ... | ... |
+| Table Name | Condition to Use | Purpose | Typical Join Targets |
+|---|---|---|---|
+| MDM_SHR_CONSUMERHISTORY | For historical consumer data | Past consumer information | MDM_SHR_CONSUMER |
+| MDM_SHR_SERVICECONNHISTORY | For historical connection data | Past connection information | MDM_SHR_SERVICECONN |
+| ... | ... | ... | ... |
 
 ### NOT-REQUIRED Tables
 (Usually empty in shared/cross-module)
 | Table Name | Reason Excluded | Category |
 |---|---|---|
 | ... | ... | ... |
+
+### Join Hints for Phase 2 Discovery (SHARED Module)
+**Use these to batch-query related tables in parallel:**
+
+| Main Table | Typical Join Targets | Why They're Related |
+|---|---|---|
+| MDM_SHR_SERVICECONN | MDM_SHR_CONSUMER, MCC_SECT_SUBDIVN_DIVN_CIRCLE_INC_AREAS_MV, CONSUMER_ALTERNATE_CONTACT | All required for complete connection/consumer/location detail |
+| MDM_SHR_CONSUMER | CONSUMER_ALTERNATE_CONTACT, MDM_SHR_CONSUMERHISTORY | Required for complete consumer contact and historical data |
 
 ---
 
@@ -221,6 +250,12 @@ For EACH module (MCC, RBS, etc.), organize tables by classification:
 - Faster table lookup: "I need MCC tables for grievance questions"
 - Easier to maintain: New tables added to relevant module section
 - Better documentation: Module-specific examples and patterns
+
+**Why Add Join Hints?**
+- Phase 2 uses join hints to determine which tables to fetch in parallel
+- When querying MCC_GRIEVANCES, Phase 2 knows to fetch MDM_MCC_COMPTYPE, MDM_SHR_SERVICECONN, etc. simultaneously
+- This reduces discovery time from 8-10 sequential queries to 4 parallel queries
+- Join hints become the "parallel discovery bundles" in Phase 2
 
 ### Step 7: Iterate Before Hard-Coding
 
