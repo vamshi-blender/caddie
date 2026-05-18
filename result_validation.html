@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caddie POC - Result Validation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: "Poppins", sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 16px;
+    color: #222;
+    font-size: 13px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 16px; color: #1a1a2e; }
+
+  /* ── File picker (shown when opened via file://) ── */
+  #picker {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+    max-width: 480px;
+    margin: 60px auto;
+    text-align: center;
+  }
+  #picker p { margin: 0; color: #555; line-height: 1.6; }
+  #picker label {
+    display: inline-block;
+    padding: 10px 24px;
+    background: #1a1a2e;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+  }
+  #picker label:hover { background: #2d2d5e; }
+  #picker input[type="file"] { display: none; }
+  #picker .hint { font-size: 11px; color: #aaa; }
+
+  /* ── Loading state ── */
+  #loading {
+    display: none;
+    text-align: center;
+    padding: 60px;
+    color: #888;
+    font-size: 15px;
+  }
+
+  /* ── Table ── */
+  #app { display: none; }
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    background: #fff;
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 1400px; }
+  thead tr { background: #1a1a2e; color: #fff; position: sticky; top: 0; z-index: 10; }
+  thead th {
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255,255,255,0.1);
+  }
+  thead th:last-child { border-right: none; }
+  tbody tr { border-bottom: 1px solid #e8eaed; }
+  tbody tr:hover { background: #f8f9ff; }
+  tbody tr:nth-child(even) { background: #fafbfd; }
+  tbody tr:nth-child(even):hover { background: #f0f2ff; }
+  td {
+    padding: 8px 12px;
+    vertical-align: top;
+    border-right: 1px solid #e8eaed;
+    max-width: 500px;
+  }
+  td:last-child { border-right: none; }
+  td:nth-child(1), td:nth-child(2) { width: 60px; text-align: center; white-space: nowrap; font-family: monospace; }
+  td:nth-child(5) { width: 110px; text-align: center; }
+
+  /* ── Collapsible cells ── */
+  .cell-content {
+    max-height: 160px;
+    overflow: hidden;
+    position: relative;
+    transition: max-height 0.3s ease;
+  }
+  .cell-content.expanded { max-height: none; }
+  .cell-content:not(.expanded)::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, rgba(255,255,255,0.95));
+    pointer-events: none;
+  }
+  .toggle-btn {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #4a6cf7;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+  }
+  .toggle-btn:hover { text-decoration: underline; }
+
+  /* ── Markdown styles ── */
+  .md-content p { margin: 0 0 6px; line-height: 1.5; }
+  .md-content p:last-child { margin-bottom: 0; }
+  .md-content pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 5px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    font-size: 11px;
+    margin: 6px 0;
+    white-space: pre;
+  }
+  .md-content code {
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-family: "Consolas", "Courier New", monospace;
+  }
+  .md-content pre code { background: none; padding: 0; font-size: inherit; }
+  /* hljs injects .hljs bg — keep our dark pre background, only use hljs for text colors */
+  .md-content pre code.hljs { background: transparent; padding: 0; color: #e0e4f4; }
+
+  /* Boost contrast for tokens that are hard to read on dark bg */
+  .md-content pre code.hljs .hljs-string  { color: #7dd3a8; }  /* quoted identifiers / string literals → bright mint */
+  .md-content pre code.hljs .hljs-title,
+  .md-content pre code.hljs .hljs-name    { color: #f0c97e; }  /* table / object names → warm gold */
+  .md-content pre code.hljs .hljs-built_in { color: #79c0ff; } /* built-in functions → sky blue */
+  .md-content pre code.hljs .hljs-number  { color: #f8a261; }  /* numeric literals → orange */
+
+  /* ── Markdown table horizontal scroll ── */
+  .md-table-scroll { overflow-x: auto; max-width: 100%; }
+  .md-content table { min-width: max-content; border-collapse: collapse; }
+  .md-content ul, .md-content ol { margin: 4px 0 4px 18px; padding: 0; }
+  .md-content li { margin-bottom: 2px; line-height: 1.5; }
+  .md-content h1, .md-content h2, .md-content h3, .md-content h4 {
+    margin: 6px 0 4px; font-size: 12px; color: #1a1a2e;
+  }
+  .md-content strong { font-weight: 600; }
+  .md-content blockquote {
+    border-left: 3px solid #c7d2fe;
+    margin: 4px 0; padding: 2px 8px; color: #555; font-style: italic;
+  }
+  .md-content hr { border: none; border-top: 1px solid #e5e7eb; margin: 6px 0; }
+
+  /* ── Badges ── */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-yes    { background: #dcfce7; color: #166534; }
+  .badge-no     { background: #fee2e2; color: #991b1b; }
+  .badge-decide { background: #fef9c3; color: #854d0e; }
+  .badge-na     { background: #f3f4f6; color: #6b7280; }
+
+  /* ── Row count ── */
+  .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Caddie POC &mdash; Result Validation</h1>
+
+<!-- Shown when file:// protocol is detected -->
+<div id="picker">
+  <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#1a1a2e" stroke-width="1.5">
+    <path stroke-linecap="round" stroke-linejoin="round"
+      d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+  </svg>
+  <p><strong>Open with file picker</strong><br>
+     Browsers block direct file access when opened locally.<br>
+     Select <em>Caddie POC - Result Validation.xlsx</em> below,<br>
+     or open this HTML via <strong>Live Server</strong> for auto-load.</p>
+  <label>
+    Choose Excel file
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+  </label>
+  <span class="hint">Tip: Right-click the HTML in VS Code → Open with Live Server to skip this step.</span>
+</div>
+
+<!-- Shown while fetching / parsing -->
+<div id="loading">Loading Excel data&hellip;</div>
+
+<!-- Main table -->
+<div id="app">
+  <div class="meta" id="meta"></div>
+  <div class="table-wrapper">
+    <table id="main-table">
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const EXCEL_FILENAME = 'Caddie POC - Result Validation.xlsx';
+const LONG_COLS      = new Set([2, 3, 5, 6, 7, 8]); // Prompt, Result Screenshot, Context, SQL, Response Time, Comments
+const PLAIN_COLS     = new Set([0, 1]);     // S.No, # as per Sheet
+
+marked.setOptions({ breaks: true, gfm: true });
+
+// ── Entry point ─────────────────────────────────────────────────────────────
+if (location.protocol === 'file:') {
+  // Can't fetch local files in Chrome — show file picker
+  document.getElementById('picker').style.display = 'flex';
+  document.getElementById('fileInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showLoading();
+    const reader = new FileReader();
+    reader.onload = ev => processBuffer(ev.target.result);
+    reader.readAsArrayBuffer(file);
+  });
+} else {
+  // Served via Live Server / any HTTP server — fetch automatically
+  showLoading();
+  fetch(EXCEL_FILENAME)
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.arrayBuffer();
+    })
+    .then(processBuffer)
+    .catch(err => {
+      document.getElementById('loading').textContent =
+        `Failed to load "${EXCEL_FILENAME}": ${err.message}`;
+    });
+}
+
+// ── Parse & render ───────────────────────────────────────────────────────────
+function processBuffer(arrayBuffer) {
+  const wb   = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellText: true });
+  const ws   = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  if (!rows.length) {
+    document.getElementById('loading').textContent = 'No data found in the file.';
+    return;
+  }
+
+  const headers  = rows[0].slice(0, 9);
+  const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c != null));
+
+  buildTable(headers, dataRows);
+
+  // SQL syntax highlighting — runs after DOM is built, no renderer changes needed
+  document.querySelectorAll('.md-content pre code').forEach(el => hljs.highlightElement(el));
+
+  // Wrap every markdown table in a scrollable container
+  document.querySelectorAll('.md-content table').forEach(t => {
+    const w = document.createElement('div');
+    w.className = 'md-table-scroll';
+    t.parentNode.insertBefore(w, t);
+    w.appendChild(t);
+  });
+
+  document.getElementById('loading').style.display  = 'none';
+  document.getElementById('picker').style.display   = 'none';
+  document.getElementById('app').style.display      = 'block';
+  document.getElementById('meta').textContent       =
+    `${dataRows.length} rows · ${wb.SheetNames[0]}`;
+}
+
+// ── DOM builders ─────────────────────────────────────────────────────────────
+function buildTable(headers, rows) {
+  const thead = document.getElementById('thead');
+  const tr    = document.createElement('tr');
+  headers.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h || '';
+    tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+
+  const tbody = document.getElementById('tbody');
+  rows.forEach((row, ri) => {
+    const rid = 'r' + ri;
+    const tr  = document.createElement('tr');
+    tr.dataset.rid = rid;
+    for (let ci = 0; ci < 9; ci++) {
+      const td   = document.createElement('td');
+      const cell = String(row[ci] ?? '');
+      if (ci === 4) {
+        td.innerHTML = satisfactionBadge(cell);
+      } else if (PLAIN_COLS.has(ci)) {
+        td.textContent = cell;
+      } else {
+        td.innerHTML = makeCollapsible(renderMd(cell), ci, rid);
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function renderMd(text) {
+  if (!text || !text.trim()) return '<span style="color:#bbb">—</span>';
+  return marked.parse(text);
+}
+
+function makeCollapsible(html, ci, rid) {
+  if (!LONG_COLS.has(ci) || html.length < 400) {
+    return `<div class="md-content">${html}</div>`;
+  }
+  return `<div class="cell-content md-content">${html}</div>` +
+         `<span class="toggle-btn" onclick="toggleRow('${rid}',this)">&#9660; Show more</span>`;
+}
+
+function toggleRow(rid, btn) {
+  const row      = document.querySelector(`tr[data-rid="${rid}"]`);
+  const cells    = row.querySelectorAll('.cell-content');
+  const btns     = row.querySelectorAll('.toggle-btn');
+  const expanded = !cells[0].classList.contains('expanded');
+  cells.forEach(el => el.classList.toggle('expanded', expanded));
+  btns.forEach(b  => { b.textContent = expanded ? '▲ Show less' : '▼ Show more'; });
+}
+
+function satisfactionBadge(text) {
+  if (!text || !text.trim()) return '<span class="badge badge-na">—</span>';
+  const t = text.trim().toLowerCase();
+  if (t === 'yes')          return '<span class="badge badge-yes">Yes</span>';
+  if (t === 'no')           return '<span class="badge badge-no">No</span>';
+  if (t.includes('decide')) return '<span class="badge badge-decide">Please Decide</span>';
+  return `<span class="badge badge-na">${text}</span>`;
+}
+
+function showLoading() {
+  document.getElementById('picker').style.display  = 'none';
+  document.getElementById('loading').style.display = 'block';
+}
+</script>
+</body>
+</html>
