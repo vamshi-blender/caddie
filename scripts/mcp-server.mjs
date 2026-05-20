@@ -10,7 +10,7 @@ import * as z from "zod/v4";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const oqScript = path.join(__dirname, "oq.ps1");
+const mcpOracleScript = path.join(__dirname, "mcp_oracle_exec.py");
 
 const port = Number.parseInt(process.env.MCP_PORT ?? "8787", 10);
 const publicUrl =
@@ -26,11 +26,89 @@ const titleSchema = z
   })
   .describe("Short query title. Recommended 3 words, maximum 5 words.");
 
+const timingSchema = z.object({
+  connect_ms: z.number().nullable(),
+  execute_ms: z.number().nullable(),
+  fetch_ms: z.number().nullable(),
+  total_ms: z.number(),
+});
+
+const sqlResultOutputSchema = {
+  title: z.string(),
+  ok: z.boolean(),
+  sql_text: z.string().optional(),
+  columns: z
+    .array(
+      z.object({
+        name: z.string(),
+        oracle_type: z.string(),
+        display_size: z.number().nullable(),
+        internal_size: z.number().nullable(),
+        precision: z.number().nullable(),
+        scale: z.number().nullable(),
+        nullable: z.boolean().nullable(),
+      }),
+    )
+    .optional(),
+  rows: z.array(z.record(z.string(), z.any())).optional(),
+  row_count: z.number().optional(),
+  has_rows: z.boolean().optional(),
+  timings: timingSchema.optional(),
+  error: z
+    .object({
+      error_type: z.string(),
+      message: z.string().optional(),
+      oracle_code: z.number().nullable().optional(),
+      oracle_message: z.string().optional(),
+      oracle_context: z.string().nullable().optional(),
+      sql_text: z.string().nullable().optional(),
+    })
+    .optional(),
+  raw: z
+    .object({
+      exit_code: z.number(),
+      stdout: z.string(),
+      stderr: z.string(),
+    })
+    .optional(),
+};
+
+function formatToolMessage(response) {
+  if (!response.ok) {
+    const error = response.error ?? {};
+    const oraclePrefix =
+      error.oracle_code === undefined || error.oracle_code === null
+        ? ""
+        : `ORA-${String(error.oracle_code).padStart(5, "0")}: `;
+    const message = error.oracle_message ?? error.message ?? "Query failed.";
+    const timing = response.timings?.total_ms;
+    return [
+      `Title: ${response.title}`,
+      `Status: Failed`,
+      `Error: ${oraclePrefix}${message}`,
+      timing === undefined ? null : `Total: ${timing} ms`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  const timing = response.timings?.total_ms;
+  return [
+    `Title: ${response.title}`,
+    `Status: Completed`,
+    `Rows: ${response.row_count ?? 0}`,
+    `Columns: ${response.columns?.length ?? 0}`,
+    timing === undefined ? null : `Total: ${timing} ms`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function runSql(sqlQuery) {
   return new Promise((resolve) => {
     const child = spawn(
-      "powershell",
-      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", oqScript],
+      "python",
+      [mcpOracleScript],
       {
         cwd: repoRoot,
         stdio: ["pipe", "pipe", "pipe"],
@@ -70,6 +148,26 @@ function runSql(sqlQuery) {
   });
 }
 
+function parseSqlResult(result, sqlQuery) {
+  try {
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        error_type: "mcp_result_parse_error",
+        message: error instanceof Error ? error.message : String(error),
+        sql_text: sqlQuery,
+      },
+      raw: {
+        exit_code: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      },
+    };
+  }
+}
+
 function createServer() {
   const server = new McpServer({
     name: "caddie-sql-mcp",
@@ -81,34 +179,32 @@ function createServer() {
     {
       title: "Run SQL Query",
       description:
-        "Runs a SQL query against the configured local Oracle database and returns the raw result.",
+        "Runs a SQL query against the configured local Oracle database and returns structured JSON rows, metadata, errors, and timings.",
       inputSchema: {
-        description: titleSchema,
+        title: titleSchema.describe(
+          "Short UI title for non-technical users. Recommended 2-3 words, maximum 5 words. Examples: Looking Customer Data, Exploring Database.",
+        ),
         sql_query: z.string().min(1).describe("SQL query to run."),
       },
+      outputSchema: sqlResultOutputSchema,
     },
-    async ({ description, sql_query }) => {
+    async ({ title, sql_query }) => {
       const result = await runSql(sql_query);
-      const output = [result.stdout.trimEnd(), result.stderr.trimEnd()]
-        .filter(Boolean)
-        .join("\n");
+      const payload = parseSqlResult(result, sql_query);
+      const response = {
+        title,
+        ...payload,
+      };
 
       return {
         content: [
           {
             type: "text",
-            text:
-              output ||
-              `Query completed with exit code ${result.exitCode} and no output.`,
+            text: formatToolMessage(response),
           },
         ],
-        isError: result.exitCode !== 0,
-        structuredContent: {
-          description,
-          exit_code: result.exitCode,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        },
+        isError: !payload.ok,
+        structuredContent: response,
       };
     },
   );
