@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__caddie-query-mcp__run_sql_query",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\vamshisaikrishnaa\\\\.claude\\\\projects\\\\D--vamshi-POC-caddie\\\\c960eeae-3cdb-4ace-bc84-df5687b1e6cc\\\\tool-results\\\\mcp-caddie-query-mcp-run_sql_query-1779126428506.txt\" -Pattern \"DISCONNECT\")",
+      "Bash(Select-Object -First 20)"
+    ]
+  }
+}

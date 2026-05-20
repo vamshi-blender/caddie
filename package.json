@@ -4,11 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "mcp:dev": "node scripts/mcp-server.mjs",
+    "ngrok:mcp": "ngrok http 8787 --url=https://unstreamlined-hidebound-daniell.ngrok-free.dev",
+    "dev:public": "concurrently -k -n next,mcp,ngrok -c blue,green,magenta \"pnpm dev\" \"pnpm mcp:dev\" \"pnpm ngrok:mcp\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "d3": "^7.9.0",
     "echarts": "^6.0.0",
     "next": "16.2.4",
@@ -16,7 +20,8 @@
     "react-dom": "19.2.4",
     "vega": "^6.2.0",
     "vega-embed": "^7.1.0",
-    "vega-lite": "^6.4.3"
+    "vega-lite": "^6.4.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -24,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
