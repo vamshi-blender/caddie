@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "claude-docs": {
+      "url": "https://code.claude.com/docs/mcp"
+    }
+  }
+}

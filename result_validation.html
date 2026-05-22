@@ -358,6 +358,27 @@
       font-size: 12px;
       color: #888;
       margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    /* ── Sheet selector ── */
+    #sheetSelector {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: "Poppins", sans-serif;
+      cursor: pointer;
+      background: #fff;
+      color: #222;
+    }
+
+    #sheetSelector:hover {
+      border-color: #999;
     }
   </style>
 </head>
@@ -388,7 +409,12 @@
 
   <!-- Main table -->
   <div id="app">
-    <div class="meta" id="meta"></div>
+    <div class="meta">
+      <div id="meta"></div>
+      <select id="sheetSelector" style="display:none;">
+        <option>Loading sheets...</option>
+      </select>
+    </div>
     <div class="table-wrapper">
       <table id="main-table">
         <thead id="thead"></thead>
@@ -401,6 +427,8 @@
     const EXCEL_FILENAME = 'Caddie POC - Result Validation.xlsx';
     const LONG_COLS = new Set([2, 3, 5, 6, 7, 8]); // Prompt, Result Screenshot, Context, SQL, Response Time, Comments
     const PLAIN_COLS = new Set([0, 1]);     // S.No, # as per Sheet
+
+    let workbook = null;
 
     marked.setOptions({ breaks: true, gfm: true });
 
@@ -433,17 +461,45 @@
 
     // ── Parse & render ───────────────────────────────────────────────────────────
     function processBuffer(arrayBuffer) {
-      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellText: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
+      workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellText: true });
+
+      // Setup sheet selector
+      const sheetSelector = document.getElementById('sheetSelector');
+      sheetSelector.innerHTML = '';
+      workbook.SheetNames.forEach((sheetName, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = sheetName;
+        sheetSelector.appendChild(option);
+      });
+      sheetSelector.addEventListener('change', e => {
+        renderSheet(parseInt(e.target.value));
+      });
+      sheetSelector.style.display = workbook.SheetNames.length > 1 ? 'block' : 'none';
+
+      // Render first sheet
+      renderSheet(0);
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('picker').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+    }
+
+    function renderSheet(sheetIndex) {
+      const ws = workbook.Sheets[workbook.SheetNames[sheetIndex]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
       if (!rows.length) {
-        document.getElementById('loading').textContent = 'No data found in the file.';
+        document.getElementById('meta').textContent = 'No data found in this sheet.';
         return;
       }
 
       const headers = rows[0].slice(0, 9);
       const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c != null));
+
+      // Clear table
+      document.getElementById('thead').innerHTML = '';
+      document.getElementById('tbody').innerHTML = '';
 
       buildTable(headers, dataRows);
 
@@ -458,11 +514,8 @@
         w.appendChild(t);
       });
 
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('picker').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
       document.getElementById('meta').textContent =
-        `${dataRows.length} rows · ${wb.SheetNames[0]}`;
+        `${dataRows.length} rows · ${workbook.SheetNames[sheetIndex]}`;
     }
 
     // ── DOM builders ─────────────────────────────────────────────────────────────
