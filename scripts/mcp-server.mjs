@@ -21,10 +21,7 @@ const titleSchema = z
   .string()
   .trim()
   .min(1)
-  .refine((value) => value.split(/\s+/).filter(Boolean).length <= 5, {
-    message: "Use a short title, maximum 5 words.",
-  })
-  .describe("Short query title. Recommended 3 words, maximum 5 words.");
+  .describe("Short query title. Recommended 3 words, preferably 5 words or fewer.");
 
 const timingSchema = z.object({
   connect_ms: z.number().nullable(),
@@ -182,7 +179,7 @@ function createServer() {
         "Runs a SQL query against the configured local Oracle database and returns structured JSON rows, metadata, errors, and timings.",
       inputSchema: {
         title: titleSchema.describe(
-          "Short UI title for non-technical users. Recommended 2-3 words, maximum 5 words. Examples: Looking Customer Data, Exploring Database.",
+          "Short UI title for non-technical users. Recommended 2-3 words, preferably 5 words or fewer. Examples: Looking Customer Data, Exploring Database.",
         ),
         sql_query: z.string().min(1).describe("SQL query to run."),
       },

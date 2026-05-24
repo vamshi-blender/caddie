@@ -3,7 +3,18 @@
     "allow": [
       "mcp__caddie-query-mcp__run_sql_query",
       "Bash(Select-String -Path \"C:\\\\Users\\\\vamshisaikrishnaa\\\\.claude\\\\projects\\\\D--vamshi-POC-caddie\\\\c960eeae-3cdb-4ace-bc84-df5687b1e6cc\\\\tool-results\\\\mcp-caddie-query-mcp-run_sql_query-1779126428506.txt\" -Pattern \"DISCONNECT\")",
-      "Bash(Select-Object -First 20)"
+      "Bash(Select-Object -First 20)",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_network_request",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_console_messages",
+      "Bash(Get-ChildItem -Path \"D:\\\\vamshi\\\\POC\\\\caddie\\\\src\" -Recurse -Include \"*.ts\", \"*.tsx\")",
+      "Bash(Select-Object FullName)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_wait_for"
     ]
   }
 }

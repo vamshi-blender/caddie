@@ -1,4 +1,5 @@
 import type { HookCallback, HookEvent } from "@anthropic-ai/claude-agent-sdk";
+import { CADDIE_MCP_SERVER_NAME } from "@/lib/agent/config";
 import { recordAgentEvent } from "@/lib/agent/observability";
 
 const auditHook: HookCallback = async (input, toolUseId) => {
@@ -17,11 +18,30 @@ const auditHook: HookCallback = async (input, toolUseId) => {
 };
 
 const denyToolUseHook: HookCallback = async (input, toolUseId) => {
+  const toolName = "tool_name" in input ? input.tool_name : undefined;
+
+  if (typeof toolName === "string" && toolName.startsWith(`mcp__${CADDIE_MCP_SERVER_NAME}__`)) {
+    await recordAgentEvent({
+      event: "hook.PreToolUse.allowed",
+      sessionId: input.session_id,
+      messageId: toolUseId,
+      data: { toolName },
+    });
+
+    return {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+        permissionDecisionReason: "Caddie MCP tools are allowed for database analysis.",
+      },
+    };
+  }
+
   await recordAgentEvent({
     event: "hook.PreToolUse.denied",
     sessionId: input.session_id,
     messageId: toolUseId,
-    data: { toolName: "tool_name" in input ? input.tool_name : undefined },
+    data: { toolName },
   });
 
   return {
@@ -29,7 +49,7 @@ const denyToolUseHook: HookCallback = async (input, toolUseId) => {
       hookEventName: "PreToolUse",
       permissionDecision: "deny",
       permissionDecisionReason:
-        "This agent is currently configured as a tool-less chatbot. MCP tools will be added later.",
+        "Only Caddie MCP tools are currently enabled for this agent.",
     },
   };
 };
@@ -38,7 +58,7 @@ const injectRuntimeContextHook: HookCallback = async () => ({
   hookSpecificOutput: {
     hookEventName: "UserPromptSubmit",
     additionalContext:
-      "Runtime context: database and action MCP tools are not connected yet. Do not claim to query live data.",
+      "Runtime context: Caddie MCP database tools are connected. Use them only when live data, schema, or database-backed analysis is needed.",
   },
 });
 

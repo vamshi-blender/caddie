@@ -1,4 +1,4 @@
-import { runAgent } from "@/lib/agent/run-agent";
+import { AgentRunStoppedError, runAgent } from "@/lib/agent/run-agent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,11 +11,26 @@ export async function POST(request: Request) {
   };
 
   const encoder = new TextEncoder();
+  const abortController = new AbortController();
+  const abortAgent = () => abortController.abort();
+
+  if (request.signal.aborted) {
+    abortController.abort();
+  } else {
+    request.signal.addEventListener("abort", abortAgent, { once: true });
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
+      let isClosed = false;
       const send = (event: unknown) => {
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        if (isClosed) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        } catch {
+          isClosed = true;
+          abortController.abort();
+        }
       };
 
       try {
@@ -25,6 +40,7 @@ export async function POST(request: Request) {
           prompt: body.prompt ?? "",
           sessionId: body.sessionId,
           resumeSessionAt: body.resumeSessionAt,
+          abortSignal: abortController.signal,
           onStream: async (event) => send(event),
         });
 
@@ -39,13 +55,27 @@ export async function POST(request: Request) {
           },
         });
       } catch (error) {
+        if (error instanceof AgentRunStoppedError) {
+          send({ type: "stopped", sessionId: body.sessionId });
+          return;
+        }
+
         send({
           type: "error",
           error: error instanceof Error ? error.message : "Unknown agent error.",
         });
       } finally {
-        controller.close();
+        request.signal.removeEventListener("abort", abortAgent);
+        isClosed = true;
+        try {
+          controller.close();
+        } catch {
+          // The client may have already cancelled the stream.
+        }
       }
+    },
+    cancel() {
+      abortController.abort();
     },
   });
 
