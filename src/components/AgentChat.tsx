@@ -40,6 +40,26 @@ type ChatStreamEvent =
   | { type: "done"; sessionId: string; messages: AgentMessage[] }
   | { type: "error"; error: string };
 
+type DataTableArtifact = {
+  id?: string;
+  title: string;
+  dataUrl: string;
+  rowCount?: number;
+  columnCount?: number;
+  truncated?: boolean;
+};
+
+type DataTablePayload = {
+  id: string;
+  title: string;
+  columns: { name: string }[];
+  rows: Record<string, unknown>[];
+  row_count: number;
+  column_count: number;
+  truncated: boolean;
+  max_rows?: number;
+};
+
 function formatTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -590,6 +610,7 @@ export default function AgentChat() {
 
 function McpBubble({ message, debug }: { message: AgentMessage; debug: boolean }) {
   const input = parseMcpInput(message.input);
+  const tableArtifact = parseMcpTableArtifact(message.result);
 
   if (debug) {
     return (
@@ -629,22 +650,110 @@ function McpBubble({ message, debug }: { message: AgentMessage; debug: boolean }
   }
 
   return (
-    <div
-      className={`font-semibold ${
-        message.status === "error"
-          ? "text-[#9b3328]"
-          : message.status === "done"
-            ? "text-[#2f6f3a]"
-            : message.status === "stopped"
-              ? "text-[#6c6f65]"
-            : "animate-pulse text-[#6a7a64]"
-      }`}
-    >
-      {input.title}
-      {message.durationSeconds !== undefined && (
-        <span className="ml-2 text-xs font-medium text-current/70">
-          {formatSeconds(message.durationSeconds)}
+    <div className="space-y-3">
+      <div
+        className={`font-semibold ${
+          message.status === "error"
+            ? "text-[#9b3328]"
+            : message.status === "done"
+              ? "text-[#2f6f3a]"
+              : message.status === "stopped"
+                ? "text-[#6c6f65]"
+                : "animate-pulse text-[#6a7a64]"
+        }`}
+      >
+        {tableArtifact?.title ?? input.title}
+        {message.durationSeconds !== undefined && (
+          <span className="ml-2 text-xs font-medium text-current/70">
+            {formatSeconds(message.durationSeconds)}
+          </span>
+        )}
+      </div>
+      {tableArtifact && message.status === "done" && (
+        <DataTablePreview artifact={tableArtifact} />
+      )}
+    </div>
+  );
+}
+
+function DataTablePreview({ artifact }: { artifact: DataTableArtifact }) {
+  const [payload, setPayload] = useState<DataTablePayload>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadTable() {
+      try {
+        const response = await fetch(artifact.dataUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error("Unable to load table.");
+        const data = (await response.json()) as DataTablePayload;
+        if (isActive) setPayload(data);
+      } catch (caught) {
+        if (isActive) {
+          setError(caught instanceof Error ? caught.message : "Unable to load table.");
+        }
+      }
+    }
+
+    void loadTable();
+
+    return () => {
+      isActive = false;
+    };
+  }, [artifact.dataUrl]);
+
+  if (error) {
+    return <div className="border border-[#b65c4a] bg-white/70 px-3 py-2 text-xs text-[#8b2f22]">{error}</div>;
+  }
+
+  if (!payload) {
+    return <div className="animate-pulse text-xs font-medium text-[#4f654f]">Loading table...</div>;
+  }
+
+  const columnNames = payload.columns.map((column) => column.name);
+  const previewRows = payload.rows.slice(0, 50);
+
+  return (
+    <div className="border border-[#cfdbc9] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#cfdbc9] px-3 py-2 text-xs text-[#4f654f]">
+        <span className="font-semibold">
+          {payload.row_count.toLocaleString()} rows · {payload.column_count.toLocaleString()} columns
         </span>
+        {payload.truncated && (
+          <span>Limited to {payload.max_rows?.toLocaleString() ?? payload.row_count.toLocaleString()}</span>
+        )}
+      </div>
+      <div className="max-h-80 overflow-auto">
+        <table className="min-w-full border-collapse text-left text-xs">
+          <thead className="sticky top-0 bg-[#edf4ee]">
+            <tr>
+              {columnNames.map((columnName) => (
+                <th key={columnName} className="border-b border-r border-[#cfdbc9] px-2 py-1.5 font-semibold text-[#243529]">
+                  {columnName}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {previewRows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="odd:bg-white even:bg-[#f8fbf7]">
+                {columnNames.map((columnName) => (
+                  <td key={columnName} className="max-w-64 border-r border-t border-[#e1eadf] px-2 py-1.5 text-[#243529]">
+                    <span className="block truncate" title={formatCell(row[columnName])}>
+                      {formatCell(row[columnName])}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {payload.rows.length > previewRows.length && (
+        <div className="border-t border-[#cfdbc9] px-3 py-2 text-xs text-[#4f654f]">
+          Showing first {previewRows.length.toLocaleString()} rows in chat.
+        </div>
       )}
     </div>
   );
@@ -691,6 +800,65 @@ function extractDurationSeconds(result: string | undefined) {
     const match = result.match(/Total:\s*([\d.]+)\s*ms/i);
     return match ? Number(match[1]) / 1000 : undefined;
   }
+}
+
+function parseMcpTableArtifact(result: string | undefined): DataTableArtifact | undefined {
+  if (!result?.trim()) return undefined;
+
+  try {
+    const parsed = JSON.parse(result) as {
+      title?: unknown;
+      table?: {
+        id?: unknown;
+        title?: unknown;
+        row_count?: unknown;
+        column_count?: unknown;
+        truncated?: unknown;
+        data_url?: unknown;
+      };
+    };
+
+    if (parsed.table && typeof parsed.table.data_url === "string") {
+      return {
+        id: typeof parsed.table.id === "string" ? parsed.table.id : undefined,
+        title:
+          typeof parsed.table.title === "string"
+            ? parsed.table.title
+            : typeof parsed.title === "string"
+              ? parsed.title
+              : "Data table",
+        dataUrl: parsed.table.data_url,
+        rowCount: typeof parsed.table.row_count === "number" ? parsed.table.row_count : undefined,
+        columnCount:
+          typeof parsed.table.column_count === "number" ? parsed.table.column_count : undefined,
+        truncated: typeof parsed.table.truncated === "boolean" ? parsed.table.truncated : undefined,
+      };
+    }
+  } catch {
+    const match = result.match(/Table:\s*(\/api\/data-tables\/[a-f0-9-]{36})/i);
+    if (match) {
+      const titleMatch = result.match(/Title:\s*(.+)/i);
+      const rowsMatch = result.match(/Rows:\s*([\d,]+)/i);
+      const columnsMatch = result.match(/Columns:\s*([\d,]+)/i);
+
+      return {
+        title: titleMatch?.[1]?.trim() || "Data table",
+        dataUrl: match[1],
+        rowCount: rowsMatch?.[1] ? Number(rowsMatch[1].replaceAll(",", "")) : undefined,
+        columnCount: columnsMatch?.[1] ? Number(columnsMatch[1].replaceAll(",", "")) : undefined,
+        truncated: result.includes("(limited to"),
+      };
+    }
+  }
+
+  return undefined;
+}
+
+function formatCell(value: unknown) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
 }
 
 function formatSeconds(seconds: number) {

@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const mcpOracleScript = path.join(__dirname, "mcp_oracle_exec.py");
+const dataTablesDir = path.join(repoRoot, ".agent-data", "data-tables");
 
 const port = Number.parseInt(process.env.MCP_PORT ?? "8787", 10);
 const publicUrl =
@@ -50,6 +53,7 @@ const sqlResultOutputSchema = {
   rows: z.array(z.record(z.string(), z.any())).optional(),
   row_count: z.number().optional(),
   has_rows: z.boolean().optional(),
+  truncated: z.boolean().optional(),
   timings: timingSchema.optional(),
   error: z
     .object({
@@ -68,6 +72,24 @@ const sqlResultOutputSchema = {
       stderr: z.string(),
     })
     .optional(),
+};
+
+const tableArtifactOutputSchema = {
+  title: z.string(),
+  ok: z.boolean(),
+  sql_text: z.string().optional(),
+  table: z
+    .object({
+      id: z.string(),
+      title: z.string(),
+      row_count: z.number(),
+      column_count: z.number(),
+      truncated: z.boolean(),
+      data_url: z.string(),
+    })
+    .optional(),
+  timings: timingSchema.optional(),
+  error: sqlResultOutputSchema.error,
 };
 
 function formatToolMessage(response) {
@@ -101,11 +123,17 @@ function formatToolMessage(response) {
     .join("\n");
 }
 
-function runSql(sqlQuery) {
+function runSql(sqlQuery, maxRows) {
   return new Promise((resolve) => {
+    const args = [mcpOracleScript];
+
+    if (maxRows !== undefined) {
+      args.push("--max-rows", String(maxRows));
+    }
+
     const child = spawn(
       "python",
-      [mcpOracleScript],
+      args,
       {
         cwd: repoRoot,
         stdio: ["pipe", "pipe", "pipe"],
@@ -165,6 +193,39 @@ function parseSqlResult(result, sqlQuery) {
   }
 }
 
+async function saveDataTable({ title, sqlQuery, payload, maxRows }) {
+  const id = randomUUID();
+  const filePath = path.join(dataTablesDir, `${id}.json`);
+  const rowCount = payload.row_count ?? payload.rows?.length ?? 0;
+  const columnCount = payload.columns?.length ?? 0;
+  const truncated = Boolean(payload.truncated);
+
+  const table = {
+    id,
+    title,
+    sql_text: sqlQuery,
+    columns: payload.columns ?? [],
+    rows: payload.rows ?? [],
+    row_count: rowCount,
+    column_count: columnCount,
+    truncated,
+    max_rows: maxRows,
+    created_at: new Date().toISOString(),
+  };
+
+  await mkdir(dataTablesDir, { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(table)}\n`, "utf8");
+
+  return {
+    id,
+    title,
+    row_count: rowCount,
+    column_count: columnCount,
+    truncated,
+    data_url: `/api/data-tables/${id}`,
+  };
+}
+
 function createServer() {
   const server = new McpServer({
     name: "caddie-sql-mcp",
@@ -201,6 +262,85 @@ function createServer() {
           },
         ],
         isError: !payload.ok,
+        structuredContent: response,
+      };
+    },
+  );
+
+  server.registerTool(
+    "create_sql_table",
+    {
+      title: "Create SQL Table",
+      description:
+        "Runs a read-only SQL query against the configured local Oracle database, stores the returned rows as a UI-renderable table artifact, and returns only table metadata so large row sets do not consume assistant response tokens.",
+      inputSchema: {
+        title: titleSchema.describe(
+          "Short table title for users. Recommended 2-5 words. Examples: Recent Payments, Division Summary.",
+        ),
+        sql_query: z.string().min(1).describe("Read-only SQL query to run for the table."),
+        max_rows: z
+          .number()
+          .int()
+          .min(1)
+          .max(10000)
+          .optional()
+          .describe("Maximum rows to fetch and store. Defaults to 1000; hard limit is 10000."),
+      },
+      outputSchema: tableArtifactOutputSchema,
+    },
+    async ({ title, sql_query, max_rows }) => {
+      const rowLimit = max_rows ?? 1000;
+      const result = await runSql(sql_query, rowLimit);
+      const payload = parseSqlResult(result, sql_query);
+
+      if (!payload.ok) {
+        const response = {
+          title,
+          ...payload,
+        };
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formatToolMessage(response),
+            },
+          ],
+          isError: true,
+          structuredContent: response,
+        };
+      }
+
+      const table = await saveDataTable({
+        title,
+        sqlQuery: payload.sql_text ?? sql_query,
+        payload,
+        maxRows: rowLimit,
+      });
+      const response = {
+        title,
+        ok: true,
+        sql_text: payload.sql_text,
+        table,
+        timings: payload.timings,
+      };
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              `Title: ${title}`,
+              "Status: Table ready",
+              `Rows: ${table.row_count}${table.truncated ? ` (limited to ${rowLimit})` : ""}`,
+              `Columns: ${table.column_count}`,
+              `Table: ${table.data_url}`,
+              payload.timings?.total_ms === undefined ? null : `Total: ${payload.timings.total_ms} ms`,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          },
+        ],
         structuredContent: response,
       };
     },

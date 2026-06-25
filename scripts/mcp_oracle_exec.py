@@ -149,7 +149,12 @@ def oracle_error_payload(exc: oracledb.Error) -> dict:
     }
 
 
-def execute_query(sql: str, config_path: Path, total_start: float) -> dict:
+def execute_query(
+    sql: str,
+    config_path: Path,
+    total_start: float,
+    max_rows: int | None = None,
+) -> dict:
     if not is_read_only_query(sql):
         keyword = first_keyword(sql) or "unknown"
         return failure_payload(
@@ -189,9 +194,17 @@ def execute_query(sql: str, config_path: Path, total_start: float) -> dict:
         column_names = [column["name"] for column in columns]
 
         step_start = time.perf_counter()
+        if max_rows is None:
+            fetched_rows = cur.fetchall()
+            truncated = False
+        else:
+            fetched_rows = cur.fetchmany(max_rows + 1)
+            truncated = len(fetched_rows) > max_rows
+            fetched_rows = fetched_rows[:max_rows]
+
         rows = [
             {column_names[index]: json_value(value) for index, value in enumerate(row)}
-            for row in cur
+            for row in fetched_rows
         ]
         timings["fetch_ms"] = elapsed_ms(step_start)
         timings["total_ms"] = elapsed_ms(total_start)
@@ -203,6 +216,7 @@ def execute_query(sql: str, config_path: Path, total_start: float) -> dict:
             "rows": rows,
             "row_count": len(rows),
             "has_rows": len(rows) > 0,
+            "truncated": truncated,
             "timings": timings,
         }
     except FileNotFoundError:
@@ -249,12 +263,20 @@ def main() -> int:
         default=str(DEFAULT_CONFIG),
         help="Path to JSON config file",
     )
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        help="Maximum number of rows to fetch before truncating the result.",
+    )
     args = parser.parse_args()
     total_start = time.perf_counter()
 
     try:
         sql = read_sql(args.query)
-        payload = execute_query(sql, Path(args.config), total_start)
+        if args.max_rows is not None and args.max_rows < 1:
+            raise RuntimeError("--max-rows must be at least 1.")
+
+        payload = execute_query(sql, Path(args.config), total_start, args.max_rows)
     except RuntimeError as exc:
         payload = failure_payload("input_error", str(exc), None, total_start)
 
