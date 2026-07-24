@@ -1,6 +1,6 @@
 import { Agent, tool } from "@openai/agents";
 import { z } from "zod";
-import { getServerTimeResult } from "./tools/server-time";
+import { getCurrentTimeResult } from "./tools/check-time";
 
 export interface ClientToolResult {
   ok: boolean;
@@ -12,19 +12,19 @@ export interface CaddieRunContext {
   clientToolResults: Record<string, ClientToolResult>;
 }
 
-const serverTimeParameters = z
+const checkTimeParameters = z
   .object({
     timeZone: z.string().nullable(),
   })
   .strict();
 
-const getServerTime = tool({
-  name: "get_server_time",
+const checkTime = tool({
+  name: "check_time",
   description:
-    "Return the current server date and time. Use this whenever the user asks for the current date or time.",
-  parameters: serverTimeParameters,
+    "Return the current date and time. Use this whenever the user asks for the current date or time.",
+  parameters: checkTimeParameters,
   async execute({ timeZone }) {
-    return JSON.stringify(getServerTimeResult({ timeZone }));
+    return JSON.stringify(getCurrentTimeResult({ timeZone }));
   },
 });
 
@@ -41,10 +41,10 @@ export const caddieAgent = new Agent<CaddieRunContext>({
 Help the user clearly and directly. Keep answers concise unless the task benefits from detail.
 Remember and use relevant information from the current conversation.
 For tool-heavy work, use brief commentary updates before and between tool calls so the user can follow meaningful progress. Put only the completed answer in the final answer phase, and do not repeat the entire work log there.
-Use get_server_time for current date or time questions.
+Use check_time for current date or time questions.
 
 Do not invent tool results, private data, or completed actions.
 Never claim that you used a tool unless it returned successfully.
 Do not use em dashes in your final answer. Use a colon or parentheses instead.`,
-  tools: [getServerTime],
+  tools: [checkTime],
 });

@@ -39,7 +39,7 @@
   /* Radius */
   --radius-full: 9999px;       /* send button, plus button, pill CTAs */
   --radius-bubble: 22px;       /* user message bubble */
-  --radius-composer: 28px;     /* composer container */
+  --radius-composer: 22px;     /* composer container */
   --radius-row: 10px;          /* sidebar nav rows */
   --radius-card: 16px;         /* small cards (e.g. login upsell card) */
 
@@ -81,6 +81,7 @@
 
   /* Sizes */
   --sidebar-width: 260px;
+  --sidebar-rail-width: 52px;  /* collapsed desktop sidebar rail */
   --icon-button-size: 36px;    /* plus/mic/send buttons */
   --composer-max-width: 768px;
   --user-bubble-max-width: 70%;

@@ -34,6 +34,83 @@
   transform: translateX(0);
 }
 
+/* Docked variant: a normal flex sibling in the layout, not a fixed overlay —
+   the chat stage reflows beside it instead of it floating on top. This stays
+   the same <aside> across expand/collapse (unlike the overlay's mount/unmount
+   dance) so the width change below is an actual animation, not a snap. */
+.sidebar-panel--docked {
+  position: relative;
+  top: auto;
+  left: auto;
+  bottom: auto;
+  flex-shrink: 0;
+  width: var(--sidebar-width);
+  max-width: none;
+  overflow: hidden;
+  border-right: 1px solid var(--border-divider);
+  transform: none;
+  transition: width 220ms ease;
+}
+
+.sidebar-panel--docked.sidebar-panel--rail {
+  width: var(--sidebar-rail-width);
+}
+
+.sidebar-panel-content {
+  width: var(--sidebar-width);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transition: opacity 120ms ease;
+}
+
+.sidebar-panel--rail .sidebar-panel-content {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: 80ms;
+}
+
+/* Icon-only controls shown only in the collapsed rail state, overlaid on the
+   same animating <aside> so they fade in as the full content fades out. */
+.sidebar-rail-buttons {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: var(--sidebar-rail-width);
+  box-sizing: border-box;
+  padding: var(--space-3) 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.sidebar-rail-avatar {
+  flex-shrink: 0;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--text-on-accent);
+  font-size: var(--text-xs-size);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.sidebar-panel--rail .sidebar-rail-buttons {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 80ms;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -99,73 +176,6 @@
   cursor: pointer;
   text-align: left;
   transition: background var(--transition-fast);
-}
-
-.sidebar-backend-row {
-  flex-shrink: 0;
-  border-top: 1px solid var(--border-divider);
-  padding: var(--space-3) var(--space-3) var(--space-2);
-}
-
-.backend-url-label {
-  display: block;
-  padding: 0 0 var(--space-2);
-  color: var(--text-secondary);
-  font-size: var(--text-xs-size);
-}
-
-.sidebar-backend-row .hint {
-  margin: var(--space-2) 0 0;
-  color: var(--text-secondary);
-  font-size: var(--text-xs-size);
-}
-
-.backend-url-row {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.backend-url-row input {
-  min-width: 0;
-  flex: 1;
-  height: 32px;
-  box-sizing: border-box;
-  border: 1px solid var(--border-divider);
-  border-radius: 8px;
-  outline: none;
-  background: var(--surface-canvas);
-  color: var(--text-primary);
-  padding: 0 var(--space-2);
-  font: inherit;
-  font-size: var(--text-xs-size);
-}
-
-.backend-url-row input:focus {
-  border-color: var(--text-secondary);
-}
-
-.backend-url-save-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent-fill);
-  color: var(--text-on-accent);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.backend-url-save-btn:hover:not(:disabled) {
-  background: var(--accent-fill-hover);
-}
-
-.backend-url-save-btn:disabled {
-  background: var(--accent-muted);
-  cursor: not-allowed;
 }
 
 .sidebar-nav-row:hover:not(:disabled),

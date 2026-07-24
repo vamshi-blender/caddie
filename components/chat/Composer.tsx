@@ -45,7 +45,6 @@ interface ComposerProps {
   disabled?: boolean;
   captureGlobalTyping?: boolean;
   onCancel?: () => void;
-  onVoiceMode?: () => void;
 }
 
 function resizeTextarea(element: HTMLTextAreaElement) {
@@ -59,7 +58,6 @@ export default function Composer({
   disabled = false,
   captureGlobalTyping = true,
   onCancel,
-  onVoiceMode,
 }: ComposerProps) {
   const [value, setValue] = useState("");
   const [dictationStatus, setDictationStatus] = useState<DictationStatus>("idle");
@@ -179,11 +177,7 @@ export default function Composer({
     }
     if (dictationStatus !== "idle") return;
     const trimmed = value.trim();
-    // Empty input shows the voice icon — the same button opens voice mode.
-    if (!trimmed) {
-      onVoiceMode?.();
-      return;
-    }
+    if (!trimmed) return;
     onSend?.(trimmed);
     setValue("");
     if (textareaRef.current) {
@@ -564,26 +558,15 @@ export default function Composer({
           <button
             type="button"
             className={`composer-send-btn composer-tooltip${busy ? " composer-send-btn--stop" : ""}`}
-            aria-label={busy ? "Stop response" : canSend ? "Send prompt" : "Voice mode"}
-            data-tooltip={busy ? "Stop response" : canSend ? "Send" : "Voice mode"}
-            disabled={!busy && (disabled || dictationStatus !== "idle")}
+            aria-label={busy ? "Stop response" : "Send prompt"}
+            data-tooltip={busy ? "Stop response" : "Send"}
+            disabled={!busy && (disabled || !canSend || dictationStatus !== "idle")}
             onClick={handleSend}
           >
             {busy ? (
               <HugeiconsIcon icon={StopIcon} size={16} fill="currentColor" />
             ) : (
-              <span className="composer-primary-icon" aria-hidden="true">
-                <span
-                  className={`composer-primary-icon-layer${!canSend ? " composer-primary-icon-layer--active" : ""}`}
-                >
-                  <span className="composer-voice-icon" />
-                </span>
-                <span
-                  className={`composer-primary-icon-layer${canSend ? " composer-primary-icon-layer--active" : ""}`}
-                >
-                  <HugeiconsIcon icon={ArrowUp02Icon} size={20} />
-                </span>
-              </span>
+              <HugeiconsIcon icon={ArrowUp02Icon} size={20} />
             )}
           </button>
         </div>

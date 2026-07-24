@@ -1,8 +1,8 @@
-export interface ServerTimeInput {
+export interface CheckTimeInput {
   timeZone: string | null;
 }
 
-export function getServerTimeResult({ timeZone }: ServerTimeInput) {
+export function getCurrentTimeResult({ timeZone }: CheckTimeInput) {
   const now = new Date();
   let formatted: string;
 

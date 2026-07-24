@@ -14,6 +14,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import type { ToolApprovalRequest } from "@/lib/agents/protocol";
@@ -540,7 +541,7 @@ function MarkdownMessage({ content, renderMermaid = true }: MarkdownMessageProps
   return (
     <div className="message-markdown">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
         rehypePlugins={[
           rehypeRaw,
           rehypeSafeInlineStyles,
@@ -915,9 +916,9 @@ export default function MessageList({
                   >
                     <HugeiconsIcon icon={copiedId === message.id ? Tick01Icon : Copy01Icon} size={18} />
                   </button>
-                  <button type="button" className="message-action-btn" aria-label="Share">
-                    <HugeiconsIcon icon={Upload01Icon} size={18} />
-                  </button>
+                  {/* <button type="button" className="message-action-btn" aria-label="Share"> */}
+                    {/* <HugeiconsIcon icon={Upload01Icon} size={18} /> */}
+                  {/* </button> */}
                 </div>
               )}
             </div>

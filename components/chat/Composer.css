@@ -186,10 +186,6 @@
     transform 100ms ease;
 }
 
-.composer-send-btn[aria-label="Voice mode"]:active {
-  transform: scale(0.9);
-}
-
 .composer-send-btn:not(:disabled) {
   background: var(--accent-fill);
   cursor: pointer;
@@ -202,34 +198,6 @@
 .composer-send-btn--stop {
   background: var(--accent-fill);
   cursor: pointer;
-}
-
-.composer-primary-icon {
-  display: grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-}
-
-.composer-primary-icon-layer {
-  display: inline-flex;
-  grid-area: 1 / 1;
-  opacity: 0;
-  transform: scale(0.78);
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-
-.composer-primary-icon-layer--active {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.composer-voice-icon {
-  width: 20px;
-  height: 20px;
-  background: currentColor;
-  -webkit-mask: url("/icons/audio-lines-stroke-rounded.svg") center / contain no-repeat;
-  mask: url("/icons/audio-lines-stroke-rounded.svg") center / contain no-repeat;
 }
 
 .composer-waveform {
@@ -279,10 +247,6 @@
 @media (prefers-reduced-motion: reduce) {
   .composer-mic-loading-icon {
     animation: none;
-  }
-
-  .composer-primary-icon-layer {
-    transition: none;
   }
 
   .composer-send-btn {

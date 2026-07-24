@@ -7,6 +7,7 @@ import {
   Cancel01Icon,
   Delete02Icon,
   Edit03Icon,
+  MenuTwoLineIcon,
   Moon02Icon,
   MoreHorizontalIcon,
   PencilEdit02Icon,
@@ -31,6 +32,12 @@ export interface SidebarChat {
 
 interface SidebarProps {
   open: boolean;
+  // "overlay": fixed slide-in panel + backdrop, used on small viewports.
+  // "docked": part of the normal layout flow, used on large viewports —
+  // collapses to a slim icon rail instead of hiding entirely.
+  variant: "overlay" | "docked";
+  railCollapsed?: boolean;
+  onToggleRail?: () => void;
   userName: string;
   chats: SidebarChat[];
   activeChatId: string | null;
@@ -46,6 +53,9 @@ interface SidebarProps {
 
 export default function Sidebar({
   open,
+  variant,
+  railCollapsed = false,
+  onToggleRail,
   userName,
   chats,
   activeChatId,
@@ -84,6 +94,10 @@ export default function Sidebar({
   }
 
   useEffect(() => {
+    // Docked sidebar is always mounted — it collapses to a rail instead of
+    // unmounting, so none of the overlay's enter/exit bookkeeping applies.
+    if (variant === "docked") return;
+
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMounted(true);
@@ -97,7 +111,7 @@ export default function Sidebar({
     setSearchResultIds(null);
     const timeout = setTimeout(() => setMounted(false), TRANSITION_MS);
     return () => clearTimeout(timeout);
-  }, [open]);
+  }, [open, variant]);
 
   // Debounced search-as-you-type.
   useEffect(() => {
@@ -117,8 +131,20 @@ export default function Sidebar({
     setSearchResultIds(null);
   }
 
+  function focusSearch() {
+    // Deferred so it runs after the rail->expanded width transition starts
+    // (and after onToggleRail's state update re-renders the full content),
+    // otherwise focus lands on an input that's still mid fade-in/hidden.
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }
+
+  function openSidebarAndFocusSearch() {
+    onToggleRail?.();
+    focusSearch();
+  }
+
   useEffect(() => {
-    if (!open || !mounted) return;
+    if (variant === "docked" || !open || !mounted) return;
 
     let enterFrame = 0;
     const mountedFrame = requestAnimationFrame(() => {
@@ -129,10 +155,13 @@ export default function Sidebar({
       cancelAnimationFrame(mountedFrame);
       cancelAnimationFrame(enterFrame);
     };
-  }, [mounted, open]);
+  }, [mounted, open, variant]);
 
   useEffect(() => {
-    if (!open) return;
+    // Only the overlay variant behaves like a modal (Escape closes it, global
+    // typing routes into its search box). The docked rail is just part of the
+    // page, so none of that applies while it's showing.
+    if (variant !== "overlay" || !open) return;
 
     function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
       if (event.defaultPrevented) return;
@@ -173,7 +202,7 @@ export default function Sidebar({
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [onClose, open]);
+  }, [onClose, open, variant]);
 
   useEffect(() => {
     if (!menuOpenFor) return;
@@ -356,7 +385,7 @@ export default function Sidebar({
     );
   }
 
-  if (!mounted) return null;
+  if (variant === "overlay" && !mounted) return null;
 
   const pinnedChats = chats.filter((chat) => chat.pinned);
   const recentChats = chats.filter((chat) => !chat.pinned);
@@ -365,31 +394,43 @@ export default function Sidebar({
     .map((id) => chats.find((chat) => chat.id === id))
     .filter((chat): chat is SidebarChat => chat !== undefined);
 
+  const docked = variant === "docked";
+  const panelClassName = docked
+    ? `sidebar-panel sidebar-panel--docked${
+        railCollapsed ? " sidebar-panel--rail" : ""
+      }`
+    : `sidebar-panel ${visible ? "sidebar-panel--visible" : ""}`;
+
   return (
     <>
-      <div
-        className={`sidebar-backdrop ${visible ? "sidebar-backdrop--visible" : ""}`}
-        onClick={onClose}
-      />
-      <aside
-        className={`sidebar-panel ${visible ? "sidebar-panel--visible" : ""}`}
-        aria-label="Conversation history"
-      >
-        <div className="sidebar-header">
-          <span className="sidebar-brand">
-            <span className="sidebar-brand-placeholder" aria-label="Caddie" role="img" />
-          </span>
-          <button
-            type="button"
-            className="sidebar-icon-btn"
-            onClick={onClose}
-            aria-label="Close sidebar"
-          >
-            <HugeiconsIcon icon={Cancel01Icon} size={20} />
-          </button>
-        </div>
+      {variant === "overlay" && (
+        <div
+          className={`sidebar-backdrop ${visible ? "sidebar-backdrop--visible" : ""}`}
+          onClick={onClose}
+        />
+      )}
+      <aside className={panelClassName} aria-label="Conversation history">
+        {/* Animating the <aside>'s own width (below) keeps this a single
+            persistent element rather than swapping subtrees, so the
+            expand/collapse transition actually has something to animate.
+            Content fades out early in the collapse so it isn't visible
+            being squeezed narrower than the sidebar itself. */}
+        <div className="sidebar-panel-content">
+          <div className="sidebar-header">
+            <span className="sidebar-brand">
+              <span className="sidebar-brand-placeholder" aria-label="Caddie" role="img" />
+            </span>
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              onClick={docked ? onToggleRail : onClose}
+              aria-label="Close sidebar"
+            >
+              <HugeiconsIcon icon={docked ? MenuTwoLineIcon : Cancel01Icon} size={20} />
+            </button>
+          </div>
 
-        <nav className="sidebar-primary-nav">
+          <nav className="sidebar-primary-nav">
           <button
             type="button"
             className={`sidebar-nav-row${
@@ -495,6 +536,48 @@ export default function Sidebar({
             <HugeiconsIcon icon={theme === "light" ? Moon02Icon : Sun03Icon} size={18} />
           </button>
         </div>
+        </div>
+
+        {docked && (
+          <div className="sidebar-rail-buttons" aria-hidden={!railCollapsed}>
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              onClick={onToggleRail}
+              aria-label="Open sidebar"
+              tabIndex={railCollapsed ? 0 : -1}
+            >
+              <HugeiconsIcon icon={MenuTwoLineIcon} size={20} />
+            </button>
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              onClick={onNewChat}
+              aria-label="New chat"
+              tabIndex={railCollapsed ? 0 : -1}
+            >
+              <HugeiconsIcon icon={PencilEdit02Icon} size={18} />
+            </button>
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              onClick={openSidebarAndFocusSearch}
+              aria-label="Search chats"
+              tabIndex={railCollapsed ? 0 : -1}
+            >
+              <HugeiconsIcon icon={Search01Icon} size={18} />
+            </button>
+
+            <button
+              type="button"
+              className="sidebar-rail-avatar"
+              aria-label={`${userName}, open profile menu`}
+              tabIndex={railCollapsed ? 0 : -1}
+            >
+              {userName.charAt(0)}
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );

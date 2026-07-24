@@ -27,10 +27,20 @@ import {
   type StoredChat,
   type StoredChatStore,
 } from "@/lib/chat-storage";
+import { useMediaQuery } from "@/lib/use-media-query";
 import "./ChatLayout.css";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-const DEFAULT_USER_NAME = "there";
+const DEFAULT_USER_NAME = "Vamshi";
+// Matches ChatGPT's own breakpoint for switching between a docked sidebar
+// (rail-collapsible, part of the layout) and a modal overlay sidebar.
+const DESKTOP_QUERY = "(min-width: 768px)";
+const RAIL_COLLAPSED_KEY = "caddieSidebarRailCollapsed";
+
+function getSavedRailCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(RAIL_COLLAPSED_KEY) === "true";
+}
 
 // Tool names that should execute silently (no approval card, the run resumes
 // automatically) once client-executed tools exist. Empty for now.
@@ -75,7 +85,9 @@ function resumeWorkClock(message: ChatMessage, resumedAt = Date.now()): ChatMess
 }
 
 export default function ChatLayout() {
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [chatStore, setChatStore] = useState<StoredChatStore>(EMPTY_CHAT_STORE);
   const [busy, setBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -114,9 +126,18 @@ export default function ChatLayout() {
     loadChatStore()
       .then(setChatStore)
       .finally(() => setHydrated(true));
+    setRailCollapsed(getSavedRailCollapsed());
 
     return () => activeRequestRef.current?.abort();
   }, []);
+
+  function handleToggleRail() {
+    setRailCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(RAIL_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!hydrated) return;
@@ -751,20 +772,46 @@ export default function ChatLayout() {
     );
   }
 
+  // The docked sidebar (desktop) always carries its own trigger — expanded or
+  // collapsed to a rail — so the topbar's menu button is only needed on
+  // mobile, where it opens the overlay instead.
+  const showTopbarSidebarTrigger = !isDesktop;
+
   return (
     <div className="chat-layout">
+      {isDesktop && (
+        <Sidebar
+          variant="docked"
+          railCollapsed={railCollapsed}
+          onToggleRail={handleToggleRail}
+          open
+          userName={DEFAULT_USER_NAME}
+          chats={sidebarChats}
+          activeChatId={chatStore.activeChatId}
+          busy={busy}
+          onClose={() => {}}
+          onSearchChats={searchChats}
+          onNewChat={handleNewChat}
+          onSelectChat={handleSelectChat}
+          onRenameChat={handleRenameChat}
+          onTogglePinChat={handleTogglePinChat}
+          onDeleteChat={handleDeleteChat}
+        />
+      )}
       <div className="chat-stage">
         <header className="chat-topbar">
           <div className="chat-topbar-brand">
-            <button
-              type="button"
-              className="icon-button sidebar-trigger app-tooltip app-tooltip--bottom app-tooltip--start"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
-              data-tooltip="Open sidebar"
-            >
-              <HugeiconsIcon icon={MenuTwoLineIcon} size={20} />
-            </button>
+            {showTopbarSidebarTrigger && (
+              <button
+                type="button"
+                className="icon-button sidebar-trigger app-tooltip app-tooltip--bottom app-tooltip--start"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open sidebar"
+                data-tooltip="Open sidebar"
+              >
+                <HugeiconsIcon icon={MenuTwoLineIcon} size={20} />
+              </button>
+            )}
             <span className="chat-brand-name">Caddie</span>
           </div>
           <div className="chat-topbar-actions">
@@ -825,20 +872,23 @@ export default function ChatLayout() {
         )}
       </div>
 
-      <Sidebar
-        open={sidebarOpen}
-        userName={DEFAULT_USER_NAME}
-        chats={sidebarChats}
-        activeChatId={chatStore.activeChatId}
-        busy={busy}
-        onClose={() => setSidebarOpen(false)}
-        onSearchChats={searchChats}
-        onNewChat={handleNewChat}
-        onSelectChat={handleSelectChat}
-        onRenameChat={handleRenameChat}
-        onTogglePinChat={handleTogglePinChat}
-        onDeleteChat={handleDeleteChat}
-      />
+      {!isDesktop && (
+        <Sidebar
+          variant="overlay"
+          open={sidebarOpen}
+          userName={DEFAULT_USER_NAME}
+          chats={sidebarChats}
+          activeChatId={chatStore.activeChatId}
+          busy={busy}
+          onClose={() => setSidebarOpen(false)}
+          onSearchChats={searchChats}
+          onNewChat={handleNewChat}
+          onSelectChat={handleSelectChat}
+          onRenameChat={handleRenameChat}
+          onTogglePinChat={handleTogglePinChat}
+          onDeleteChat={handleDeleteChat}
+        />
+      )}
     </div>
   );
 }
