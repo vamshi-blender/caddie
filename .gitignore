@@ -32,8 +32,6 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.example
-.agent-data/
 
 # vercel
 .vercel
@@ -41,9 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-~$Caddie & POC comparistion.xlsx
-Caddie & POC comparistion.xlsx
-.playwright-mcp
-Caddie POC - Result Validation.xlsx
-~$Caddie POC - Result Validation.xlsx
