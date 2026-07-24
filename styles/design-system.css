@@ -1,0 +1,142 @@
+/*
+  Design tokens observed from chatgpt.com (dark + light themes), captured via
+  Playwright computed-style inspection. Source of truth for color, spacing,
+  borders, and type across popup/sidepanel/popout surfaces.
+
+  Theme switching: default (no attribute) is dark. Add data-theme="light" to
+  the root element to switch — see ThemeSwitcher/theme.ts.
+*/
+:root {
+  /* Surfaces (dark, default) */
+  --surface-canvas: #000000;         /* page/app background */
+  --surface-raised: #171717;         /* sidebar, elevated panels */
+  --surface-composer: #212121;       /* message input pill */
+  --surface-bubble-user: rgba(50, 50, 50, 0.85); /* user message bubble */
+  --surface-bubble-assistant: transparent;       /* assistant text sits directly on canvas */
+  --surface-hover: #262626;    /* hover state for icon buttons and nav rows */
+  --surface-active: rgba(255, 255, 255, 0.1);    /* active/selected row (e.g. "New chat") */
+  --surface-secondary-button: #212121;            /* secondary pill button resting fill (e.g. "Log in") */
+  --surface-secondary-button-hover: #2f2f2f;      /* secondary pill button hover fill */
+
+  /* Borders / dividers (dark) */
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-divider: rgba(255, 255, 255, 0.1);
+  --border-composer: rgba(255, 255, 255, 0.1); /* composer pill outline, measured */
+
+  /* Text (dark) */
+  --text-primary: #ffffff;
+  --text-secondary: #b4b4b4;   /* muted/help text, timestamps */
+  --text-tertiary: #8e8e8e;    /* footer disclaimers, placeholders */
+  --text-on-accent: #0d0d0d;   /* text on the white pill button */
+
+  /* Accent — grayscale system, no brand color (dark) */
+  --accent-fill: #f9f9f9;          /* primary CTA pill background (Log in, active send button) */
+  --accent-fill-hover: #e9e9e9;
+  --accent-muted: rgba(255, 255, 255, 0.41); /* disabled/inactive send button */
+  --status-danger: #f06a6a;
+  --status-danger-soft: rgba(240, 106, 106, 0.14);
+
+  /* Radius */
+  --radius-full: 9999px;       /* send button, plus button, pill CTAs */
+  --radius-bubble: 22px;       /* user message bubble */
+  --radius-composer: 28px;     /* composer container */
+  --radius-row: 10px;          /* sidebar nav rows */
+  --radius-card: 16px;         /* small cards (e.g. login upsell card) */
+
+  /* Spacing scale (px) */
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Composer-specific spacing (measured: outer pill uses 5px 8px) */
+  --composer-padding-x: 8px;
+  --composer-padding-y: 8px;
+  --bubble-padding-x: 16px;
+  --bubble-padding-y: 10px;
+
+  /* Height of the fade band at the top/bottom edge of the voice transcript
+     (mask-based, so it works identically in both themes). */
+  --voice-transcript-fade: var(--space-8);
+
+  /* Typography */
+  --font-sans:
+    -apple-system-body, ui-sans-serif, -apple-system, "system-ui", "Segoe UI",
+    Helvetica, Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+
+  --text-base-size: 16px;
+  --text-base-line: 24px;      /* message body line-height */
+  --text-composer-line: 26px;  /* composer textarea line-height */
+  --text-sm-size: 14px;        /* buttons, nav labels */
+  --text-sm-line: 20px;
+  --text-xs-size: 12px;        /* footer/disclaimer text */
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* Sizes */
+  --sidebar-width: 260px;
+  --icon-button-size: 36px;    /* plus/mic/send buttons */
+  --composer-max-width: 768px;
+  --user-bubble-max-width: 70%;
+
+  /* Motion */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+
+  /* Voice mode screen (dark) — card chrome, round controls, and the blurred
+     status glow. The glow is a solid blurred circle so its color can animate
+     smoothly between session states. */
+  --voice-card-shadow: 16px 16px 60px rgba(0, 0, 0, 0.5);
+  --voice-control-bg: #2a2a2a;
+  --voice-control-bg-hover: #3a3a3a;
+  --voice-control-soft-bg: #1f1f1f;
+  --voice-glow-neutral: #303036;
+  --voice-glow-listening: #2f5c96;
+  --voice-glow-speaking: #6b4fa8;
+  --voice-glow-muted: #8a4a4a;
+}
+
+/* Light theme overrides — measured from chatgpt.com's light mode. */
+:root[data-theme="light"] {
+  --surface-canvas: #fcfcfc;
+  --surface-raised: #ffffff;
+  --surface-composer: #ffffff;
+  --surface-bubble-user: rgba(233, 233, 233, 0.5);
+  --surface-bubble-assistant: transparent;
+  --surface-hover: rgba(0, 0, 0, 0.05);
+  --surface-active: rgba(0, 0, 0, 0.08);
+  --surface-secondary-button: #ffffff;
+  --surface-secondary-button-hover: #f5f5f5;
+
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-divider: rgba(0, 0, 0, 0.1);
+  --border-composer: rgba(0, 0, 0, 0.15);
+
+  --text-primary: #0d0d0d;
+  --text-secondary: #5d5d5d;
+  --text-tertiary: #8e8e8e;
+  --text-on-accent: #ffffff;
+
+  --accent-fill: #0d0d0d;
+  --accent-fill-hover: #2a2a2a;
+  --accent-muted: rgba(0, 0, 0, 0.35);
+  --status-danger: #c93636;
+  --status-danger-soft: rgba(201, 54, 54, 0.1);
+
+  /* Voice mode screen (light) — colors sampled directly from the Figma
+     reference frames (Listening/Bot Speaking/Mic Muted node screenshots). */
+  --voice-card-shadow: 16px 16px 60px rgba(129, 129, 129, 0.16);
+  --voice-control-bg: #f4f4f4;
+  --voice-control-bg-hover: #eaeaea;
+  --voice-control-soft-bg: #f9f9f9;
+  --voice-glow-neutral: #e3e3e3;
+  --voice-glow-listening: #a9d1f9;
+  --voice-glow-speaking: #ccaff2;
+  --voice-glow-muted: #ffd5d5;
+}

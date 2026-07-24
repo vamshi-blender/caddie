@@ -1,0 +1,16 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  /* The app is a fixed 100vh layout with its own internal scroll areas —
+     document-level scrollbars are always unwanted (e.g. hidden tooltips
+     extending past the viewport edge would otherwise summon them). */
+  overflow: hidden;
+}
+
+body {
+  min-width: 280px;
+}

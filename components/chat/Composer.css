@@ -1,0 +1,291 @@
+.composer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--surface-composer);
+  border: 1px solid var(--border-composer);
+  border-radius: var(--radius-composer);
+  padding: var(--composer-padding-y) var(--composer-padding-x);
+  box-sizing: border-box;
+}
+
+.composer-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base-size);
+  line-height: var(--text-composer-line);
+  max-height: 200px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+.composer-textarea::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.composer-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.composer-textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+}
+
+.composer-trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The dictation ✕ / ✓ pair sits tighter together than the mic/send pair. */
+.composer--dictating .composer-trailing {
+  gap: var(--space-1);
+}
+
+.composer-tooltip {
+  position: relative;
+}
+
+.composer-tooltip::before,
+.composer-tooltip::after {
+  position: absolute;
+  left: 50%;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+}
+
+.composer-tooltip::before {
+  content: "";
+  bottom: calc(100% + 4px);
+  width: 7px;
+  height: 7px;
+  background: var(--text-primary);
+  transform: translate(-50%, 3px) rotate(45deg);
+}
+
+.composer-tooltip::after {
+  content: attr(data-tooltip);
+  bottom: calc(100% + 8px);
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--text-primary);
+  color: var(--surface-canvas);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs-size);
+  font-weight: var(--font-weight-medium);
+  line-height: 16px;
+  white-space: nowrap;
+  transform: translate(-50%, 4px);
+}
+
+.composer-tooltip:hover::before,
+.composer-tooltip:hover::after,
+.composer-tooltip:focus-visible::before,
+.composer-tooltip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.composer-tooltip:hover::before,
+.composer-tooltip:focus-visible::before {
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.composer-tooltip:hover::after,
+.composer-tooltip:focus-visible::after {
+  transform: translate(-50%, 0);
+}
+
+/* The send/stop button sits at the viewport's right edge; anchor its label
+   to the button's right side so wide text (e.g. "Stop response") grows
+   leftward instead of past the window edge. */
+.composer-send-btn.composer-tooltip::after {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+
+.composer-send-btn.composer-tooltip:hover::after,
+.composer-send-btn.composer-tooltip:focus-visible::after {
+  transform: translate(0, 0);
+}
+
+.composer-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.composer-icon-btn:hover {
+  background: var(--surface-hover);
+}
+
+.composer-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.composer-icon-btn--recording,
+.composer-icon-btn--recording:hover {
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+}
+
+.composer-icon-btn--loading:disabled {
+  opacity: 1;
+}
+
+.composer-mic-loading-icon {
+  display: inline-flex;
+  animation: composer-spinner 0.75s linear infinite;
+}
+
+.composer-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent-muted);
+  color: var(--text-on-accent);
+  cursor: not-allowed;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    transform 100ms ease;
+}
+
+.composer-send-btn[aria-label="Voice mode"]:active {
+  transform: scale(0.9);
+}
+
+.composer-send-btn:not(:disabled) {
+  background: var(--accent-fill);
+  cursor: pointer;
+}
+
+.composer-send-btn:not(:disabled):hover {
+  background: var(--accent-fill-hover);
+}
+
+.composer-send-btn--stop {
+  background: var(--accent-fill);
+  cursor: pointer;
+}
+
+.composer-primary-icon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+}
+
+.composer-primary-icon-layer {
+  display: inline-flex;
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: scale(0.78);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.composer-primary-icon-layer--active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.composer-voice-icon {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: url("/icons/audio-lines-stroke-rounded.svg") center / contain no-repeat;
+  mask: url("/icons/audio-lines-stroke-rounded.svg") center / contain no-repeat;
+}
+
+.composer-waveform {
+  display: block;
+  width: 100%;
+  height: 40px;
+  color: var(--text-tertiary);
+}
+
+/* Cancel (✕) and confirm (✓) share one neutral style, like ChatGPT — both
+   are plain transparent icon buttons, no accent fill on the confirm. */
+.composer-dictation-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.composer-dictation-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.composer-dictation-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* The confirm button becomes the processing spinner — stays fully opaque
+   while disabled so the spinner reads clearly, unlike the greyed cancel. */
+.composer-dictation-btn--busy:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+@keyframes composer-spinner {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-mic-loading-icon {
+    animation: none;
+  }
+
+  .composer-primary-icon-layer {
+    transition: none;
+  }
+
+  .composer-send-btn {
+    transition: none;
+  }
+}
