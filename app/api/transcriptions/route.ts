@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getCurrentSession, unauthorizedResponse } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,8 @@ function unavailableReason(): string | null {
 }
 
 export async function POST(request: Request) {
+  if (!(await getCurrentSession())) return unauthorizedResponse();
+
   const unavailable = unavailableReason();
   if (unavailable) {
     return Response.json(

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ClientToolResult } from "@/lib/agents/caddie-agent";
 import { takePendingRun } from "@/lib/agents/pending-runs";
 import { restoreRunState, streamCaddieRun } from "@/lib/agents/stream-run";
+import { getCurrentSession, unauthorizedResponse } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,9 @@ const resumeRequestSchema = z
   .strict();
 
 export async function POST(request: Request) {
+  const session = await getCurrentSession();
+  if (!session) return unauthorizedResponse();
+
   let body: unknown;
   try {
     body = await request.json();
@@ -34,7 +38,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid resume request." }, { status: 400 });
   }
 
-  const pending = takePendingRun(parsed.data.runId);
+  const pending = takePendingRun(parsed.data.runId, session.userId);
   if (!pending || pending.toolCallId !== parsed.data.toolCallId) {
     return Response.json(
       { error: "This tool request expired or was already handled." },
@@ -99,6 +103,7 @@ export async function POST(request: Request) {
   const stream = streamCaddieRun({
     input: state,
     conversationId: pending.conversationId,
+    userId: session.userId,
     signal: request.signal,
   });
 

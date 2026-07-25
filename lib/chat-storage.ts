@@ -5,9 +5,10 @@ import type {
   ChatMessage,
 } from "@/components/chat/MessageList";
 
-const CHAT_STORE_KEY = "caddieChatStoreV1";
 const DEFAULT_CHAT_TITLE = "New chat";
 const MAX_TITLE_LENGTH = 56;
+let lastQueuedPayload = "";
+let saveQueue: Promise<void> = Promise.resolve();
 
 export type ChatTitleStatus = "pending" | "generated" | "fallback" | "manual";
 
@@ -218,15 +219,18 @@ function restoreStore(value: unknown): StoredChatStore | null {
 }
 
 export async function loadChatStore(): Promise<StoredChatStore> {
-  if (typeof window === "undefined") return { ...EMPTY_CHAT_STORE };
-
-  const raw = window.localStorage.getItem(CHAT_STORE_KEY);
-  if (!raw) return { ...EMPTY_CHAT_STORE };
+  const response = await fetch("/api/chat-store", { cache: "no-store" });
+  if (!response.ok) throw new Error("Chat history could not be loaded.");
 
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = await response.json();
     const restored = restoreStore(parsed);
-    if (restored) return restored;
+    if (restored) {
+      lastQueuedPayload = JSON.stringify({
+        chats: restored.chats,
+      });
+      return restored;
+    }
   } catch {
     // Fall through to an empty store below.
   }
@@ -234,7 +238,85 @@ export async function loadChatStore(): Promise<StoredChatStore> {
   return { ...EMPTY_CHAT_STORE };
 }
 
-export async function saveChatStore(store: StoredChatStore) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(CHAT_STORE_KEY, JSON.stringify(store));
+function committedMessages(messages: ChatMessage[]): ChatMessage[] {
+  const committed: ChatMessage[] = [];
+  let pendingUsers: ChatMessage[] = [];
+
+  for (const message of messages) {
+    if (message.role === "user") {
+      pendingUsers.push({
+        id: message.id,
+        role: "user",
+        content: message.content,
+      });
+      continue;
+    }
+
+    if (message.status === "done") {
+      committed.push(
+        ...pendingUsers,
+        {
+          id: message.id,
+          role: "assistant",
+          content: message.content,
+          status: "done",
+          ...(message.work
+            ? {
+                work: {
+                  startedAt: message.work.startedAt,
+                  ...(message.work.completedAt
+                    ? { completedAt: message.work.completedAt }
+                    : {}),
+                  items: message.work.items.filter(
+                    (item) =>
+                      item.type === "commentary" ||
+                      item.status === "completed" ||
+                      item.status === "rejected" ||
+                      item.status === "failed",
+                  ),
+                },
+              }
+            : {}),
+        },
+      );
+    }
+
+    pendingUsers = [];
+  }
+
+  return committed;
+}
+
+function committedChats(store: StoredChatStore): StoredChat[] {
+  return store.chats
+    .map((chat) => ({
+      ...chat,
+      messages: committedMessages(chat.messages),
+    }))
+    .filter(
+      (chat): chat is StoredChat & { conversationId: string } =>
+        chat.messages.length > 0 && Boolean(chat.conversationId),
+    );
+}
+
+export function saveChatStore(store: StoredChatStore): Promise<void> {
+  const payload = JSON.stringify({ chats: committedChats(store) });
+  if (payload === lastQueuedPayload) return saveQueue;
+  lastQueuedPayload = payload;
+
+  saveQueue = saveQueue
+    .catch(() => {})
+    .then(async () => {
+      const response = await fetch("/api/chat-store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+      if (!response.ok) {
+        if (lastQueuedPayload === payload) lastQueuedPayload = "";
+        throw new Error("Chat history could not be saved.");
+      }
+    });
+
+  return saveQueue;
 }

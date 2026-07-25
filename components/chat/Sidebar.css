@@ -519,7 +519,8 @@
   color: var(--text-secondary);
 }
 
-.theme-toggle-btn {
+.theme-toggle-btn,
+.sidebar-logout-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -534,7 +535,8 @@
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.theme-toggle-btn:hover {
+.theme-toggle-btn:hover,
+.sidebar-logout-btn:hover {
   background: var(--surface-hover);
   color: var(--text-primary);
 }

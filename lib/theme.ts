@@ -3,9 +3,9 @@ export type Theme = "dark" | "light";
 const THEME_KEY = "caddieTheme";
 
 export function getSavedTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const theme = window.localStorage.getItem(THEME_KEY);
-  return theme === "light" ? "light" : "dark";
+  return theme === "dark" ? "dark" : "light";
 }
 
 export function saveTheme(theme: Theme): void {
@@ -13,8 +13,8 @@ export function saveTheme(theme: Theme): void {
 }
 
 export function applyTheme(theme: Theme): void {
-  if (theme === "light") {
-    document.documentElement.setAttribute("data-theme", "light");
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
   } else {
     document.documentElement.removeAttribute("data-theme");
   }

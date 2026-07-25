@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { getCurrentSession, unauthorizedResponse } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ function unavailableReason(): string | null {
 }
 
 export async function POST(request: Request) {
+  if (!(await getCurrentSession())) return unauthorizedResponse();
+
   const unavailable = unavailableReason();
   if (unavailable) {
     return Response.json({ error: unavailable }, { status: 503 });

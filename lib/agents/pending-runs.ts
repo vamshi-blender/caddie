@@ -8,6 +8,7 @@ export interface PendingRun {
   toolCallId: string;
   toolName: string;
   executor: ToolExecutor;
+  userId: string;
   createdAt: number;
 }
 
@@ -36,9 +37,13 @@ export function savePendingRun(run: Omit<PendingRun, "createdAt">): string {
   return runId;
 }
 
-export function takePendingRun(runId: string): PendingRun | undefined {
+export function takePendingRun(
+  runId: string,
+  userId: string,
+): PendingRun | undefined {
   removeExpiredRuns();
   const pending = pendingRuns.get(runId);
-  if (pending) pendingRuns.delete(runId);
+  if (!pending || pending.userId !== userId) return undefined;
+  pendingRuns.delete(runId);
   return pending;
 }

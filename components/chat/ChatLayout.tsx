@@ -31,11 +31,29 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import "./ChatLayout.css";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-const DEFAULT_USER_NAME = "Vamshi";
+const DEFAULT_USER_NAME = "Caddie User";
 // Matches ChatGPT's own breakpoint for switching between a docked sidebar
 // (rail-collapsible, part of the layout) and a modal overlay sidebar.
 const DESKTOP_QUERY = "(min-width: 768px)";
 const RAIL_COLLAPSED_KEY = "caddieSidebarRailCollapsed";
+
+function createClientId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return [
+    hex.slice(0, 4).join(""),
+    hex.slice(4, 6).join(""),
+    hex.slice(6, 8).join(""),
+    hex.slice(8, 10).join(""),
+    hex.slice(10, 16).join(""),
+  ].join("-");
+}
 
 function getSavedRailCollapsed(): boolean {
   if (typeof window === "undefined") return false;
@@ -142,7 +160,9 @@ export default function ChatLayout() {
   useEffect(() => {
     if (!hydrated) return;
     const timeout = setTimeout(() => {
-      void saveChatStore(chatStore);
+      void saveChatStore(chatStore).catch((error) =>
+        console.error("Could not save chat history", error),
+      );
     }, 150);
     return () => clearTimeout(timeout);
   }, [chatStore, hydrated]);
@@ -485,13 +505,11 @@ export default function ChatLayout() {
         const stoppedAt = Date.now();
         return {
           ...message,
-          status: cancelled && message.content ? "done" : "error",
+          status: "error",
           error:
-            cancelled && !message.content
+            cancelled
               ? "Response stopped."
-              : cancelled
-                ? undefined
-                : error instanceof Error
+              : error instanceof Error
                   ? error.message
                   : "Caddie could not respond.",
           toolRequest: undefined,
@@ -518,15 +536,15 @@ export default function ChatLayout() {
 
   function handleSend(content: string) {
     if (!hydrated || busyRef.current || hasPendingApproval) return;
-    const chatId = activeChat?.id ?? crypto.randomUUID();
+    const chatId = activeChat?.id ?? createClientId();
     const requestConversationId = activeChat?.conversationId ?? undefined;
     const now = Date.now();
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: createClientId(),
       role: "user",
       content,
     };
-    const replyId = crypto.randomUUID();
+    const replyId = createClientId();
     const assistantMessage: ChatMessage = {
       id: replyId,
       role: "assistant",
@@ -588,6 +606,12 @@ export default function ChatLayout() {
   function handleNewChat() {
     handleCancel();
     setChatStore((current) => ({ ...current, activeChatId: null }));
+  }
+
+  async function handleLogout() {
+    handleCancel();
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.assign("/login");
   }
 
   function handleSelectChat(chatId: string) {
@@ -686,11 +710,11 @@ export default function ChatLayout() {
     if (!toolRequest) return;
 
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: createClientId(),
       role: "user",
       content: instruction,
     };
-    const replyId = crypto.randomUUID();
+    const replyId = createClientId();
     const assistantMessage: ChatMessage = {
       id: replyId,
       role: "assistant",
@@ -796,6 +820,7 @@ export default function ChatLayout() {
           onRenameChat={handleRenameChat}
           onTogglePinChat={handleTogglePinChat}
           onDeleteChat={handleDeleteChat}
+          onLogout={() => void handleLogout()}
         />
       )}
       <div className="chat-stage">
@@ -887,6 +912,7 @@ export default function ChatLayout() {
           onRenameChat={handleRenameChat}
           onTogglePinChat={handleTogglePinChat}
           onDeleteChat={handleDeleteChat}
+          onLogout={() => void handleLogout()}
         />
       )}
     </div>

@@ -1,5 +1,10 @@
 import OpenAI from "openai";
 import { z } from "zod";
+import {
+  isConversationOwner,
+  removeConversationOwner,
+} from "@/lib/auth/ownership";
+import { getCurrentSession, unauthorizedResponse } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +21,9 @@ function unavailableReason(): string | null {
 }
 
 export async function DELETE(request: Request) {
+  const session = await getCurrentSession();
+  if (!session) return unauthorizedResponse();
+
   const unavailable = unavailableReason();
   if (unavailable) {
     return Response.json({ error: unavailable }, { status: 503 });
@@ -39,14 +47,28 @@ export async function DELETE(request: Request) {
     );
   }
 
+  if (
+    !(await isConversationOwner(
+      parsed.data.conversationId,
+      session.userId,
+    ))
+  ) {
+    return Response.json(
+      { error: "That conversation is not available to this account." },
+      { status: 403 },
+    );
+  }
+
   try {
     const openai = new OpenAI();
     await openai.conversations.delete(parsed.data.conversationId, {
       signal: request.signal,
     });
+    await removeConversationOwner(parsed.data.conversationId, session.userId);
     return new Response(null, { status: 204 });
   } catch (error) {
     if (error instanceof OpenAI.APIError && error.status === 404) {
+      await removeConversationOwner(parsed.data.conversationId, session.userId);
       return new Response(null, { status: 204 });
     }
 

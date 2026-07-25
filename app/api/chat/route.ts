@@ -1,6 +1,11 @@
 import { z } from "zod";
 import OpenAI from "openai";
 import { streamCaddieRun } from "@/lib/agents/stream-run";
+import {
+  isConversationOwner,
+  registerConversationOwner,
+} from "@/lib/auth/ownership";
+import { getCurrentSession, unauthorizedResponse } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +23,9 @@ function unavailableReason(): string | null {
 }
 
 export async function POST(request: Request) {
+  const session = await getCurrentSession();
+  if (!session) return unauthorizedResponse();
+
   const unavailable = unavailableReason();
   if (unavailable) {
     return Response.json({ error: unavailable }, { status: 503 });
@@ -42,6 +50,16 @@ export async function POST(request: Request) {
   }
 
   let conversationId = parsed.data.conversationId;
+  if (
+    conversationId &&
+    !(await isConversationOwner(conversationId, session.userId))
+  ) {
+    return Response.json(
+      { error: "That conversation is not available to this account." },
+      { status: 403 },
+    );
+  }
+
   if (!conversationId) {
     try {
       const openai = new OpenAI();
@@ -50,6 +68,7 @@ export async function POST(request: Request) {
         { signal: request.signal },
       );
       conversationId = conversation.id;
+      registerConversationOwner(conversationId, session.userId);
     } catch (error) {
       console.error("Failed to create an OpenAI conversation", error);
       return Response.json(
@@ -62,6 +81,7 @@ export async function POST(request: Request) {
   const stream = streamCaddieRun({
     input: parsed.data.message,
     conversationId,
+    userId: session.userId,
     signal: request.signal,
   });
 

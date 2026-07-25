@@ -35,6 +35,7 @@ const TOOL_OUTPUT_PREVIEW_LIMIT = 1_200;
 interface StreamCaddieRunOptions {
   input: string | RunState<CaddieRunContext, typeof caddieAgent>;
   conversationId: string;
+  userId: string;
   signal: AbortSignal;
 }
 
@@ -195,6 +196,7 @@ function publicError(error: unknown): ChatStreamEvent {
 export function streamCaddieRun({
   input,
   conversationId,
+  userId,
   signal,
 }: StreamCaddieRunOptions): ReadableStream<Uint8Array> {
   const abortController = new AbortController();
@@ -334,6 +336,7 @@ export function streamCaddieRun({
             toolCallId: approval.toolCallId,
             toolName: approval.name,
             executor: approval.executor,
+            userId,
           });
 
           send({

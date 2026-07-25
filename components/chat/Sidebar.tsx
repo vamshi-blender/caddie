@@ -7,6 +7,7 @@ import {
   Cancel01Icon,
   Delete02Icon,
   Edit03Icon,
+  Logout01Icon,
   MenuTwoLineIcon,
   Moon02Icon,
   MoreHorizontalIcon,
@@ -49,6 +50,7 @@ interface SidebarProps {
   onRenameChat: (chatId: string, title: string) => void;
   onTogglePinChat: (chatId: string) => void;
   onDeleteChat: (chatId: string) => Promise<boolean>;
+  onLogout: () => void;
 }
 
 export default function Sidebar({
@@ -67,6 +69,7 @@ export default function Sidebar({
   onRenameChat,
   onTogglePinChat,
   onDeleteChat,
+  onLogout,
 }: SidebarProps) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(false);
@@ -83,7 +86,8 @@ export default function Sidebar({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setTheme(getSavedTheme());
+    const frame = window.requestAnimationFrame(() => setTheme(getSavedTheme()));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function onToggleTheme() {
@@ -524,6 +528,16 @@ export default function Sidebar({
               <span className="sidebar-user-name">{userName}</span>
               <span className="sidebar-user-plan">{CURRENT_USER_PLAN}</span>
             </span>
+          </button>
+
+          <button
+            type="button"
+            className="sidebar-logout-btn"
+            onClick={onLogout}
+            aria-label="Log out"
+            title="Log out"
+          >
+            <HugeiconsIcon icon={Logout01Icon} size={18} />
           </button>
 
           <button
