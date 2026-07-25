@@ -70,6 +70,9 @@ export async function POST(request: Request) {
 
   const state = await restoreRunState(pending.serializedState, {
     clientToolResults,
+    userId: session.userId,
+    conversationId: pending.conversationId,
+    sqlCallsUsed: 0,
   });
   const interruption = state
     .getInterruptions()

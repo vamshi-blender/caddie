@@ -221,7 +221,12 @@ export function streamCaddieRun({
           ...(isResumedRun
             ? {}
             : {
-                context: { clientToolResults: {} },
+                context: {
+                  clientToolResults: {},
+                  userId,
+                  conversationId,
+                  sqlCallsUsed: 0,
+                },
                 conversationId,
               }),
         });

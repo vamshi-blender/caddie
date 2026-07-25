@@ -130,6 +130,17 @@
   color: var(--text-tertiary);
 }
 
+.login-input:autofill,
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus,
+.login-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--surface-composer) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
 .login-input:focus {
   outline: none;
   border-color: var(--text-secondary);

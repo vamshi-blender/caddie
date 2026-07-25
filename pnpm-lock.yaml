@@ -38,6 +38,9 @@ importers:
       openai:
         specifier: ^6.47.0
         version: 6.49.0(ws@8.21.1)(zod@4.4.3)
+      oracledb:
+        specifier: ^7.0.1
+        version: 7.0.1
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -75,6 +78,9 @@ importers:
       '@types/node':
         specifier: ^20
         version: 20.19.43
+      '@types/oracledb':
+        specifier: ^7.0.1
+        version: 7.0.1
       '@types/react':
         specifier: ^19
         version: 19.2.17
@@ -780,6 +786,9 @@ packages:
 
   '@types/node@20.19.43':
     resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
+
+  '@types/oracledb@7.0.1':
+    resolution: {integrity: sha512-0A6m9YE4yu73KXehr5D6cbyALUzZoANGY4bG5cAPQIpJoJG4eMVPbR1Vau8ycnC25V/+F4Au1pdFSy8ODOAD0w==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -2537,6 +2546,10 @@ packages:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
 
+  oracledb@7.0.1:
+    resolution: {integrity: sha512-xlM0Ceh6A5stQLAdEfKf3pgCSkbOjQLo2ZPEi3+kXklz+KbZD3fLi/nsTSbQeZZNFBSFDNxdn1Ek3+bxG40M8w==}
+    engines: {node: '>=14.17'}
+
   own-keys@1.0.2:
     resolution: {integrity: sha512-19YVAg7T+WTrxggPukVq7DjTv6+PJ867TmhCvBsYwmbFCsZd344rq2Ld1p0wo8f8Qrrhgp82c6FJRqdXWtSEhg==}
     engines: {node: '>= 0.4'}
@@ -3842,6 +3855,10 @@ snapshots:
   '@types/node@20.19.43':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/oracledb@7.0.1':
+    dependencies:
+      '@types/node': 20.19.43
 
   '@types/react-dom@19.2.3(@types/react@19.2.17)':
     dependencies:
@@ -6110,6 +6127,8 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
       word-wrap: 1.2.5
+
+  oracledb@7.0.1: {}
 
   own-keys@1.0.2:
     dependencies:

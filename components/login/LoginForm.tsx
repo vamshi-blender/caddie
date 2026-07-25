@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Loading03Icon, Moon02Icon, Sun03Icon, ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons";
@@ -13,6 +13,9 @@ export default function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme | null>(null);
+  const [credentialFieldsReady, setCredentialFieldsReady] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setTheme(getSavedTheme()));
@@ -24,6 +27,14 @@ export default function LoginForm() {
     setTheme(next);
     applyTheme(next);
     saveTheme(next);
+  }
+
+  function enableCredentialFields() {
+    // Removing readonly before the browser focuses either field prevents
+    // page-load autofill while preserving its saved-credential picker.
+    emailInputRef.current?.removeAttribute("readonly");
+    passwordInputRef.current?.removeAttribute("readonly");
+    setCredentialFieldsReady(true);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -101,12 +112,16 @@ export default function LoginForm() {
               Email address
             </label>
             <input
+              ref={emailInputRef}
               id="login-email"
               name="email"
               type="email"
               className="login-input"
               placeholder="you@example.com"
-              autoComplete="email"
+              autoComplete="username"
+              readOnly={!credentialFieldsReady}
+              onPointerDown={enableCredentialFields}
+              onFocus={enableCredentialFields}
               required
               disabled={isSubmitting}
             />
@@ -120,12 +135,16 @@ export default function LoginForm() {
             </div>
             <div className="login-password-wrap">
               <input
+                ref={passwordInputRef}
                 id="login-password"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 className="login-input"
                 placeholder="Enter your password"
                 autoComplete="current-password"
+                readOnly={!credentialFieldsReady}
+                onPointerDown={enableCredentialFields}
+                onFocus={enableCredentialFields}
                 required
                 disabled={isSubmitting}
               />

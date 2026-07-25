@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { MenuTwoLineIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import Sidebar, { type SidebarChat } from "./Sidebar";
@@ -31,7 +32,6 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import "./ChatLayout.css";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-const DEFAULT_USER_NAME = "Caddie User";
 // Matches ChatGPT's own breakpoint for switching between a docked sidebar
 // (rail-collapsible, part of the layout) and a modal overlay sidebar.
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -53,6 +53,31 @@ function createClientId(): string {
     hex.slice(8, 10).join(""),
     hex.slice(10, 16).join(""),
   ].join("-");
+}
+
+function chatIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/c\/([^/]+)$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+// Soft URL updates integrate with the Next.js router. The shared (chat) layout
+// keeps this component mounted while the page marker changes, so an active
+// response is not cancelled when a new chat receives its permanent URL.
+function openChatUrl(chatId: string) {
+  const path = `/c/${encodeURIComponent(chatId)}`;
+  if (window.location.pathname === path) return;
+  window.history.pushState(null, "", path);
+}
+
+function openHomeUrl(options?: { replace?: boolean }) {
+  if (window.location.pathname === "/") return;
+  if (options?.replace) window.history.replaceState(null, "", "/");
+  else window.history.pushState(null, "", "/");
 }
 
 function getSavedRailCollapsed(): boolean {
@@ -102,7 +127,8 @@ function resumeWorkClock(message: ChatMessage, resumedAt = Date.now()): ChatMess
   };
 }
 
-export default function ChatLayout() {
+export default function ChatLayout({ userName }: { userName: string }) {
+  const pathname = usePathname();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
@@ -148,6 +174,42 @@ export default function ChatLayout() {
 
     return () => activeRequestRef.current?.abort();
   }, []);
+
+  // The URL is the source of truth for which chat is open. This effect keeps
+  // the active chat in sync with it — covering initial load on /c/<id>,
+  // browser back/forward, and the handlers below (which update both eagerly
+  // and land here as no-ops). An id that isn't in this user's chats — deleted,
+  // mistyped, or someone else's — redirects home.
+  useEffect(() => {
+    if (!hydrated) return;
+    // Read the live location, not the `pathname` hook value: after a
+    // pushState the hook lags by a render, and acting on the stale "/" here
+    // would abort the request a brand-new chat just started ("Response
+    // stopped."). The hook still serves as the re-run trigger for
+    // back/forward navigation.
+    const routeChatId = chatIdFromPath(window.location.pathname);
+
+    if (routeChatId === null) {
+      if (chatStore.activeChatId !== null) {
+        activeRequestRef.current?.abort();
+        setChatStore((current) => ({ ...current, activeChatId: null }));
+      }
+      return;
+    }
+
+    if (!chatStore.chats.some((chat) => chat.id === routeChatId)) {
+      openHomeUrl({ replace: true });
+      if (chatStore.activeChatId !== null) {
+        setChatStore((current) => ({ ...current, activeChatId: null }));
+      }
+      return;
+    }
+
+    if (chatStore.activeChatId !== routeChatId) {
+      activeRequestRef.current?.abort();
+      setChatStore((current) => ({ ...current, activeChatId: routeChatId }));
+    }
+  }, [pathname, hydrated, chatStore.activeChatId, chatStore.chats]);
 
   function handleToggleRail() {
     setRailCollapsed((current) => {
@@ -222,6 +284,7 @@ export default function ChatLayout() {
         event.preventDefault();
         activeRequestRef.current?.abort();
         setChatStore((current) => ({ ...current, activeChatId: null }));
+        openHomeUrl();
       }
     }
 
@@ -587,7 +650,12 @@ export default function ChatLayout() {
       };
     });
 
-    if (!activeChat) void generateTitle(chatId, content);
+    if (!activeChat) {
+      // The chat now exists in local state, so the reconcile effect won't
+      // bounce this URL back home even though the server hasn't saved it yet.
+      openChatUrl(chatId);
+      void generateTitle(chatId, content);
+    }
 
     void executeRequest(chatId, replyId, (signal, onEvent) =>
       streamChat({
@@ -606,6 +674,7 @@ export default function ChatLayout() {
   function handleNewChat() {
     handleCancel();
     setChatStore((current) => ({ ...current, activeChatId: null }));
+    openHomeUrl();
   }
 
   async function handleLogout() {
@@ -616,12 +685,10 @@ export default function ChatLayout() {
 
   function handleSelectChat(chatId: string) {
     if (chatId === chatStore.activeChatId) return;
+    if (!chatStore.chats.some((chat) => chat.id === chatId)) return;
     handleCancel();
-    setChatStore((current) =>
-      current.chats.some((chat) => chat.id === chatId)
-        ? { ...current, activeChatId: chatId }
-        : current,
-    );
+    setChatStore((current) => ({ ...current, activeChatId: chatId }));
+    openChatUrl(chatId);
   }
 
   function handleRenameChat(chatId: string, title: string) {
@@ -651,7 +718,12 @@ export default function ChatLayout() {
       return false;
     }
 
-    if (chatId === chatStore.activeChatId) handleCancel();
+    if (chatId === chatStore.activeChatId) {
+      handleCancel();
+      // The deleted chat's URL is gone for good — replace it so Back doesn't
+      // land on a dead link.
+      openHomeUrl({ replace: true });
+    }
     setChatStore((current) => ({
       activeChatId:
         current.activeChatId === chatId ? null : current.activeChatId,
@@ -809,7 +881,7 @@ export default function ChatLayout() {
           railCollapsed={railCollapsed}
           onToggleRail={handleToggleRail}
           open
-          userName={DEFAULT_USER_NAME}
+          userName={userName}
           chats={sidebarChats}
           activeChatId={chatStore.activeChatId}
           busy={busy}
@@ -884,7 +956,7 @@ export default function ChatLayout() {
         ) : (
           <main className="chat-main">
             <div className="chat-composer-area">
-              <Greeting userName={DEFAULT_USER_NAME} />
+              <Greeting userName={userName} />
               <Composer
                 onSend={handleSend}
                 busy={busy}
@@ -901,7 +973,7 @@ export default function ChatLayout() {
         <Sidebar
           variant="overlay"
           open={sidebarOpen}
-          userName={DEFAULT_USER_NAME}
+          userName={userName}
           chats={sidebarChats}
           activeChatId={chatStore.activeChatId}
           busy={busy}

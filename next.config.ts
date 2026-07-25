@@ -12,6 +12,7 @@ function getLocalDevOrigins(): string[] {
 }
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["oracledb"],
   allowedDevOrigins:
     process.env.NODE_ENV === "development" ? getLocalDevOrigins() : [],
 };
