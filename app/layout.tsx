@@ -5,6 +5,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Caddie",
   description: "Caddie AI assistant",
+  icons: {
+    icon: "/Caddie_Logo_Short.svg",
+  },
 };
 
 const restoreThemeScript = `

@@ -26,7 +26,7 @@ const sqlParameters = z
 export const runReadonlySql = tool<typeof sqlParameters, CaddieRunContext>({
   name: "run_readonly_sql",
   description:
-    "Run one read-only Oracle SELECT query against the shared database configured in Settings and return structured rows. Use Oracle data dictionary SELECT queries through this same tool when schema details are needed.",
+    "Execute one server-side, read-only Oracle SELECT against the shared database configured in Settings. Returns JSON with ok, columns, rows, rowCount, truncated, and durationMs on success, or error and errorCode on failure; use focused Oracle metadata SELECTs when schema details are needed.",
   parameters: sqlParameters,
   timeoutMs: 120_000,
   timeoutBehavior: "error_as_result",

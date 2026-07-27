@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { MenuTwoLineIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
@@ -909,7 +910,16 @@ export default function ChatLayout({ userName }: { userName: string }) {
                 <HugeiconsIcon icon={MenuTwoLineIcon} size={20} />
               </button>
             )}
-            <span className="chat-brand-name">Caddie</span>
+            {(!isDesktop || railCollapsed) && (
+              <Image
+                className="chat-brand-logo"
+                src="/Caddie_Logo_Full.svg"
+                alt="Caddie"
+                width={98}
+                height={28}
+                priority
+              />
+            )}
           </div>
           <div className="chat-topbar-actions">
             <button

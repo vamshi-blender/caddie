@@ -401,15 +401,34 @@
 }
 
 .message-markdown-table-wrap {
+  width: fit-content;
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 24%, transparent) transparent;
+}
+
+.message-markdown-table-wrap::-webkit-scrollbar {
+  height: 5px;
+}
+
+.message-markdown-table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.message-markdown-table-wrap::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 24%, transparent);
+}
+
+.message-markdown-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, currentColor 38%, transparent);
 }
 
 .message-markdown table {
-  width: 100%;
-  min-width: max-content;
+  width: max-content;
   border-collapse: collapse;
   font-size: 0.92em;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Archive03Icon,
@@ -422,7 +423,14 @@ export default function Sidebar({
         <div className="sidebar-panel-content">
           <div className="sidebar-header">
             <span className="sidebar-brand">
-              <span className="sidebar-brand-placeholder" aria-label="Caddie" role="img" />
+              <Image
+                className="sidebar-brand-logo"
+                src="/Caddie_Logo_Full.svg"
+                alt="Caddie"
+                width={98}
+                height={28}
+                priority
+              />
             </span>
             <button
               type="button"
