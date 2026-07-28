@@ -2,6 +2,8 @@
 // the chat UI. Both sides import this same file (no hand-duplication, unlike
 // the workupdate reference project where the client kept its own copy).
 
+import type { ChartSpec } from "@/lib/charts/spec";
+
 // Names of tools that execute in the browser (relayed back via the resume
 // endpoint) rather than on the server. Empty for now — add entries here as
 // client-executed tools are introduced.
@@ -50,6 +52,14 @@ export type ChatStreamEvent =
       completedAt: number;
     }
   | {
+      // A chart accepted by render_chart. Carried as its own event rather than
+      // inside tool.completed so the chart renders in the answer body instead
+      // of the collapsible work log.
+      type: "chart.rendered";
+      chartId: string;
+      chart: ChartSpec;
+    }
+  | {
       type: "tool_approval.request";
       runId: string;
       toolCallId: string;
@@ -81,6 +91,7 @@ const EVENT_TYPES = new Set<ChatStreamEvent["type"]>([
   "response.delta",
   "tool.started",
   "tool.completed",
+  "chart.rendered",
   "tool_approval.request",
   "response.paused",
   "response.completed",

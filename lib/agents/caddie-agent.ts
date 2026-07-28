@@ -1,6 +1,8 @@
 import { Agent, tool } from "@openai/agents";
 import { z } from "zod";
+import { CHART_LIMITS, type ChartSpec } from "@/lib/charts/spec";
 import { getCurrentTimeResult } from "./tools/check-time";
+import { MAX_CHARTS_PER_RESPONSE, renderChart } from "./tools/render-chart";
 import {
   MAX_SQL_CALLS_PER_RESPONSE,
   runReadonlySql,
@@ -17,6 +19,9 @@ export interface CaddieRunContext {
   userId: string;
   conversationId: string;
   sqlCallsUsed: number;
+  chartsRendered: number;
+  /** Specs accepted by render_chart, drained by the stream as chart events. */
+  charts: ChartSpec[];
 }
 
 const checkTimeParameters = z
@@ -78,6 +83,34 @@ Use relevant facts and schema information already established in the current con
 Use check_time only when the user asks for the current date or time, or when a database question requires the current date or time.
 </other_tools>
 
+<charts>
+render_chart displays a chart above your written answer. Only bar charts are supported today.
+Call it at most ${MAX_CHARTS_PER_RESPONSE} time per response, and only once you have the actual numbers to plot. When the data comes from the database, that means after the query results are in.
+
+Use a chart when it makes a comparison easier to see than a table would:
+- One measure compared across roughly 3 to 30 categories.
+- A measure across ordered time buckets, such as months or quarters.
+- A small number of series compared across the same categories, or parts making up a total.
+
+Do not use a chart when:
+- There is a single value or a single category. State the number instead.
+- The user asked for a list, a lookup, or specific record details.
+- The rows are mostly text, identifiers, or unrelated columns.
+- There are more than 30 categories. Chart a meaningful top slice and say what it covers.
+- The user explicitly asked for a table or for text only.
+
+Building the chart:
+- Plot only values you were actually given: query results, or data the user supplied directly in the conversation. Both are valid sources. Never estimate, extrapolate, or invent a bar.
+- Sort categories in the order that communicates best: by value for rankings, chronologically for time.
+- Keep raw numbers in values. Do not pre-format them into strings, and do not scale them into lakh or crore: the chart applies Indian formatting itself. Set valueFormat to currency or percent when it applies.
+- Use one series unless the question genuinely compares several measures or groups. Use stacked or stacked100 only for parts of a whole. Cap series at ${CHART_LIMITS.maxSeries}.
+- Prefer horizontal orientation when category names are long.
+- Write a title that states the insight, and use subtitle for units, filters, or the time range.
+- Enable showValueLabels only for a single series with few categories.
+
+A chart never replaces the answer. Always write the text answer as well, leading with the takeaway, and do not restate every plotted number in prose.
+</charts>
+
 <answer_rules>
 Preserve exact names, numbers, dates, units, and distinctions shown in the results.
 Format displayed numbers using the Indian numbering system, for example 1,00,000 and 12,34,567.89 instead of 100,000 and 1,234,567.89. In prose, express values from 1,00,000 to below 1,00,00,000 in lakh, and values from 1,00,00,000 upward in crore. Do not use million or billion unless the user explicitly requests them. When precision matters, show the exact Indian-formatted value and a rounded lakh or crore value in parentheses.
@@ -88,5 +121,5 @@ If unresolved ambiguity would materially change the query, ask one short clarify
 Never invent results, private data, tool usage, or completed actions. Never claim a query succeeded unless its result has ok=true.
 Do not use em dashes. Use a colon or parentheses instead.
 </answer_rules>`,
-  tools: [checkTime, runReadonlySql],
+  tools: [checkTime, runReadonlySql, renderChart],
 });

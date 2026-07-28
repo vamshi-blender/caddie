@@ -473,6 +473,18 @@ export default function ChatLayout({ userName }: { userName: string }) {
           status: "streaming",
         };
       });
+    } else if (event.type === "chart.rendered") {
+      updateAssistant(chatId, messageId, (message) => {
+        const charts = message.charts ?? [];
+        // A replayed event must not duplicate a chart already on screen.
+        if (charts.some((chart) => chart.id === event.chartId)) return message;
+        return {
+          ...message,
+          charts: [...charts, { id: event.chartId, spec: event.chart }],
+          status: "streaming",
+          error: undefined,
+        };
+      });
     } else if (event.type === "tool_approval.request") {
       if (AUTO_EXECUTED_TOOLS.has(event.name)) {
         // Silent tool: no approval card. Keep the tool spinning in the work
@@ -857,6 +869,7 @@ export default function ChatLayout({ userName }: { userName: string }) {
       content: "",
       status: "pending",
       error: undefined,
+      charts: undefined,
       work: { startedAt: Date.now(), items: [] },
     }));
     void executeRequest(chatId, messageId, (signal, onEvent) =>

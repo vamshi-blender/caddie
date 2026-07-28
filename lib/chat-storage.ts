@@ -3,7 +3,9 @@ import type {
   AgentWorkItem,
   AgentWorkLog,
   ChatMessage,
+  MessageChart,
 } from "@/components/chat/MessageList";
+import { isChartSpec } from "@/lib/charts/spec";
 
 const DEFAULT_CHAT_TITLE = "New chat";
 const MAX_TITLE_LENGTH = 56;
@@ -111,6 +113,20 @@ function restoreWorkLog(value: unknown): AgentWorkLog | undefined {
   };
 }
 
+// Charts come back from storage as untrusted JSON, so each spec is
+// structurally re-validated before the renderer is handed it.
+function restoreCharts(value: unknown): MessageChart[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const charts = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const chart = entry as Partial<MessageChart>;
+    if (typeof chart.id !== "string" || !isChartSpec(chart.spec)) return [];
+    return [{ id: chart.id, spec: chart.spec }];
+  });
+
+  return charts.length > 0 ? charts : undefined;
+}
+
 function restoreMessage(value: unknown): ChatMessage | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const message = value as Partial<ChatMessage>;
@@ -123,6 +139,7 @@ function restoreMessage(value: unknown): ChatMessage | null {
   }
 
   const work = restoreWorkLog(message.work);
+  const charts = restoreCharts(message.charts);
 
   if (
     message.role === "assistant" &&
@@ -137,6 +154,7 @@ function restoreMessage(value: unknown): ChatMessage | null {
       content: message.content,
       status: "error",
       error: "This response was interrupted. Try sending the message again.",
+      ...(charts ? { charts } : {}),
       work: work
         ? {
             ...work,
@@ -152,7 +170,7 @@ function restoreMessage(value: unknown): ChatMessage | null {
     };
   }
 
-  return { ...(message as ChatMessage), work };
+  return { ...(message as ChatMessage), work, charts };
 }
 
 function restoreChat(value: unknown): StoredChat | null {
@@ -260,6 +278,7 @@ function committedMessages(messages: ChatMessage[]): ChatMessage[] {
           role: "assistant",
           content: message.content,
           status: "done",
+          ...(message.charts?.length ? { charts: message.charts } : {}),
           ...(message.work
             ? {
                 work: {

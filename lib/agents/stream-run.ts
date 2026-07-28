@@ -37,6 +37,12 @@ interface StreamCaddieRunOptions {
   conversationId: string;
   userId: string;
   signal: AbortSignal;
+  /**
+   * The context a resumed run was restored with. RunState keeps its own copy
+   * private, so the caller passes the same object here to let the stream read
+   * what the tools write (see restoreRunState).
+   */
+  resumedContext?: CaddieRunContext;
 }
 
 interface TextSegment {
@@ -198,6 +204,7 @@ export function streamCaddieRun({
   conversationId,
   userId,
   signal,
+  resumedContext,
 }: StreamCaddieRunOptions): ReadableStream<Uint8Array> {
   const abortController = new AbortController();
   const abort = () => abortController.abort();
@@ -214,21 +221,22 @@ export function streamCaddieRun({
 
       try {
         const isResumedRun = input instanceof RunState;
+        // Either way this is the same object the tools mutate, so draining
+        // charts off it works for fresh and resumed runs alike.
+        const runContext: CaddieRunContext = resumedContext ?? {
+          clientToolResults: {},
+          userId,
+          conversationId,
+          sqlCallsUsed: 0,
+          chartsRendered: 0,
+          charts: [],
+        };
+
         const result = await run(caddieAgent, input, {
           stream: true,
           signal: abortController.signal,
           maxTurns: 8,
-          ...(isResumedRun
-            ? {}
-            : {
-                context: {
-                  clientToolResults: {},
-                  userId,
-                  conversationId,
-                  sqlCallsUsed: 0,
-                },
-                conversationId,
-              }),
+          ...(isResumedRun ? {} : { context: runContext, conversationId }),
         });
 
         let startsNewSegment = true;
@@ -300,6 +308,16 @@ export function streamCaddieRun({
                 callId,
                 ...(output ? { output } : {}),
                 completedAt: Date.now(),
+              });
+            }
+            // render_chart parks accepted specs on the run context; forward
+            // any that appeared as their own event. Draining the queue keeps
+            // a chart from being emitted twice across turns.
+            for (const chart of runContext.charts.splice(0)) {
+              send({
+                type: "chart.rendered",
+                chartId: crypto.randomUUID(),
+                chart,
               });
             }
             continue;

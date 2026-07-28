@@ -18,6 +18,8 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import type { ToolApprovalRequest } from "@/lib/agents/protocol";
+import type { ChartSpec } from "@/lib/charts/spec";
+import ChartCard from "./charts/ChartCard";
 import "katex/dist/katex.min.css";
 import "./MessageList.css";
 
@@ -56,6 +58,11 @@ export interface AgentWorkLog {
   items: AgentWorkItem[];
 }
 
+export interface MessageChart {
+  id: string;
+  spec: ChartSpec;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -64,6 +71,8 @@ export interface ChatMessage {
   error?: string;
   toolRequest?: ToolApprovalRequest;
   work?: AgentWorkLog;
+  /** Charts from render_chart, shown above the answer text. */
+  charts?: MessageChart[];
 }
 
 interface MessageListProps {
@@ -808,6 +817,7 @@ export default function MessageList({
     <div className="message-list">
       {messages.map((message) => {
         const hasWork = Boolean(message.work?.items.length);
+        const hasCharts = Boolean(message.charts?.length);
 
         return (
           <div key={message.id} className={`message-row message-row--${message.role}`}>
@@ -815,7 +825,7 @@ export default function MessageList({
             <div className="message-bubble message-bubble--user">
               <MarkdownMessage content={message.content} />
             </div>
-          ) : message.status === "pending" && !message.content && !hasWork ? (
+          ) : message.status === "pending" && !message.content && !hasWork && !hasCharts ? (
             <span className="message-pending-dot" aria-label="Waiting for response" />
           ) : (
             <div className="message-column">
@@ -826,6 +836,9 @@ export default function MessageList({
                   hasFinalAnswer={Boolean(message.content)}
                 />
               )}
+              {message.charts?.map((chart) => (
+                <ChartCard key={chart.id} spec={chart.spec} />
+              ))}
               {message.content && (
                 <div
                   className={`message-bubble message-bubble--assistant${

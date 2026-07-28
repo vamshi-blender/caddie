@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { ClientToolResult } from "@/lib/agents/caddie-agent";
+import type {
+  CaddieRunContext,
+  ClientToolResult,
+} from "@/lib/agents/caddie-agent";
 import { takePendingRun } from "@/lib/agents/pending-runs";
 import { restoreRunState, streamCaddieRun } from "@/lib/agents/stream-run";
 import { getCurrentSession, unauthorizedResponse } from "@/lib/auth/session";
@@ -68,12 +71,17 @@ export async function POST(request: Request) {
     clientToolResults[pending.toolCallId] = clientResult;
   }
 
-  const state = await restoreRunState(pending.serializedState, {
+  // Held onto so the stream can read what the resumed run's tools write into
+  // it (RunState keeps its own copy private).
+  const resumedContext: CaddieRunContext = {
     clientToolResults,
     userId: session.userId,
     conversationId: pending.conversationId,
     sqlCallsUsed: 0,
-  });
+    chartsRendered: 0,
+    charts: [],
+  };
+  const state = await restoreRunState(pending.serializedState, resumedContext);
   const interruption = state
     .getInterruptions()
     .find(
@@ -108,6 +116,7 @@ export async function POST(request: Request) {
     conversationId: pending.conversationId,
     userId: session.userId,
     signal: request.signal,
+    resumedContext,
   });
 
   return new Response(stream, {
