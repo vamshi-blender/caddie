@@ -8,6 +8,14 @@
   background: var(--surface-canvas);
 }
 
+.login-logo-corner {
+  position: fixed;
+  top: var(--space-4);
+  left: var(--space-4);
+  height: 32px;
+  width: auto;
+}
+
 .login-theme-toggle-btn {
   position: fixed;
   top: var(--space-4);
@@ -42,12 +50,10 @@
 }
 
 .login-logo {
-  width: 40px;
+  display: block;
   height: 40px;
+  width: auto;
   margin: 0 auto var(--space-5);
-  border-radius: var(--radius-row);
-  background: var(--surface-hover);
-  border: 1px dashed var(--border-divider);
 }
 
 .login-title {

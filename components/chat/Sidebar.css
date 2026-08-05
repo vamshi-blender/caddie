@@ -88,23 +88,6 @@
   transition: opacity 120ms ease;
 }
 
-.sidebar-rail-avatar {
-  flex-shrink: 0;
-  margin-top: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: var(--accent-fill);
-  color: var(--text-on-accent);
-  font-size: var(--text-xs-size);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-}
-
 .sidebar-panel--rail .sidebar-rail-buttons {
   opacity: 1;
   pointer-events: auto;
@@ -463,76 +446,3 @@
   padding: var(--space-2);
 }
 
-.sidebar-user-row {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-2);
-  border: none;
-  border-radius: var(--radius-row);
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-  text-align: left;
-}
-
-.sidebar-user-row:hover {
-  background: var(--surface-hover);
-}
-
-.sidebar-user-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-fill);
-  color: var(--text-on-accent);
-  font-size: var(--text-xs-size);
-  font-weight: var(--font-weight-semibold);
-}
-
-.sidebar-user-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.sidebar-user-name {
-  font-size: var(--text-sm-size);
-  font-weight: var(--font-weight-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-user-plan {
-  font-size: var(--text-xs-size);
-  color: var(--text-secondary);
-}
-
-.theme-toggle-btn,
-.sidebar-logout-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: var(--radius-row);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.theme-toggle-btn:hover,
-.sidebar-logout-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}

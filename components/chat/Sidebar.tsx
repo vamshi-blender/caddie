@@ -8,22 +8,17 @@ import {
   Cancel01Icon,
   Delete02Icon,
   Edit03Icon,
-  Logout01Icon,
-  MenuTwoLineIcon,
-  Moon02Icon,
   MoreHorizontalIcon,
+  PanelLeftIcon,
   PencilEdit02Icon,
   PinIcon,
   PinOffIcon,
   Search01Icon,
-  Sun03Icon,
 } from "@hugeicons/core-free-icons";
-import { applyTheme, getSavedTheme, saveTheme, type Theme } from "@/lib/theme";
+import UserMenu from "./UserMenu";
 import "./Sidebar.css";
 
 const TRANSITION_MS = 220;
-
-const CURRENT_USER_PLAN = "Free";
 
 export interface SidebarChat {
   id: string;
@@ -41,6 +36,7 @@ interface SidebarProps {
   railCollapsed?: boolean;
   onToggleRail?: () => void;
   userName: string;
+  userEmail: string;
   chats: SidebarChat[];
   activeChatId: string | null;
   busy: boolean;
@@ -60,6 +56,7 @@ export default function Sidebar({
   railCollapsed = false,
   onToggleRail,
   userName,
+  userEmail,
   chats,
   activeChatId,
   busy,
@@ -79,24 +76,11 @@ export default function Sidebar({
   const [renameValue, setRenameValue] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteErrorFor, setDeleteErrorFor] = useState<string | null>(null);
-  const [theme, setTheme] = useState<Theme | null>(null);
   const [searchValue, setSearchValue] = useState("");
   // null = no search ran yet (empty query); otherwise ranked chat ids.
   const [searchResultIds, setSearchResultIds] = useState<string[] | null>(null);
   const menuAnchorRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setTheme(getSavedTheme()));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  function onToggleTheme() {
-    const next: Theme = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    applyTheme(next);
-    saveTheme(next);
-  }
 
   useEffect(() => {
     // Docked sidebar is always mounted — it collapses to a rail instead of
@@ -438,7 +422,7 @@ export default function Sidebar({
               onClick={docked ? onToggleRail : onClose}
               aria-label="Close sidebar"
             >
-              <HugeiconsIcon icon={docked ? MenuTwoLineIcon : Cancel01Icon} size={20} />
+              <HugeiconsIcon icon={docked ? PanelLeftIcon : Cancel01Icon} size={20} />
             </button>
           </div>
 
@@ -528,35 +512,7 @@ export default function Sidebar({
         </div>
 
         <div className="sidebar-footer">
-          <button type="button" className="sidebar-user-row">
-            <span className="sidebar-user-avatar" aria-hidden="true">
-              {userName.charAt(0)}
-            </span>
-            <span className="sidebar-user-info">
-              <span className="sidebar-user-name">{userName}</span>
-              <span className="sidebar-user-plan">{CURRENT_USER_PLAN}</span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className="sidebar-logout-btn"
-            onClick={onLogout}
-            aria-label="Log out"
-            title="Log out"
-          >
-            <HugeiconsIcon icon={Logout01Icon} size={18} />
-          </button>
-
-          <button
-            type="button"
-            className="theme-toggle-btn"
-            aria-pressed={theme === "light"}
-            onClick={onToggleTheme}
-            aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
-          >
-            <HugeiconsIcon icon={theme === "light" ? Moon02Icon : Sun03Icon} size={18} />
-          </button>
+          <UserMenu variant="expanded" userName={userName} userEmail={userEmail} onLogout={onLogout} />
         </div>
         </div>
 
@@ -569,7 +525,7 @@ export default function Sidebar({
               aria-label="Open sidebar"
               tabIndex={railCollapsed ? 0 : -1}
             >
-              <HugeiconsIcon icon={MenuTwoLineIcon} size={20} />
+              <HugeiconsIcon icon={PanelLeftIcon} size={20} />
             </button>
             <button
               type="button"
@@ -590,14 +546,7 @@ export default function Sidebar({
               <HugeiconsIcon icon={Search01Icon} size={18} />
             </button>
 
-            <button
-              type="button"
-              className="sidebar-rail-avatar"
-              aria-label={`${userName}, open profile menu`}
-              tabIndex={railCollapsed ? 0 : -1}
-            >
-              {userName.charAt(0)}
-            </button>
+            <UserMenu variant="rail" userName={userName} userEmail={userEmail} onLogout={onLogout} />
           </div>
         )}
       </aside>

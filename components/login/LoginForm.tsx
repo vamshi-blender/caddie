@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Loading03Icon, Moon02Icon, Sun03Icon, ViewIcon, ViewOffIcon } from "@hugeicons/core-free-icons";
 import { applyTheme, getSavedTheme, saveTheme, type Theme } from "@/lib/theme";
@@ -79,6 +80,15 @@ export default function LoginForm() {
 
   return (
     <div className="login-page">
+      <Image
+        className="login-logo-corner"
+        src="/Caddie_Logo_Full.svg"
+        alt="Caddie"
+        width={112}
+        height={32}
+        priority
+      />
+
       <button
         type="button"
         className="login-theme-toggle-btn"
@@ -90,7 +100,15 @@ export default function LoginForm() {
       </button>
 
       <div className="login-card">
-        <div className="login-logo" aria-hidden="true" />
+        <Image
+          className="login-logo"
+          src="/Caddie_Logo_Full.svg"
+          alt="Caddie"
+          width={140}
+          height={40}
+          priority
+          hidden
+        />
 
         <h1 className="login-title">Welcome back</h1>
         <p className="login-subtitle">Log in to continue to Caddie</p>

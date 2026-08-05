@@ -38,6 +38,16 @@ export type ChatStreamEvent =
       startsNewSegment?: true;
     }
   | {
+      // The model has announced a function call but is still generating its
+      // arguments. This lets long structured calls show progress before the
+      // SDK can emit tool.started with the completed arguments.
+      type: "tool.preparing";
+      callId: string;
+      name: string;
+      executor: ToolExecutor;
+      startedAt: number;
+    }
+  | {
       type: "tool.started";
       callId: string;
       name: string;
@@ -89,6 +99,7 @@ export type ChatStreamEvent =
 const EVENT_TYPES = new Set<ChatStreamEvent["type"]>([
   "response.started",
   "response.delta",
+  "tool.preparing",
   "tool.started",
   "tool.completed",
   "chart.rendered",

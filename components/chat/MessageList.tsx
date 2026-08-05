@@ -20,6 +20,7 @@ import remarkMath from "remark-math";
 import type { ToolApprovalRequest } from "@/lib/agents/protocol";
 import type { ChartSpec } from "@/lib/charts/spec";
 import ChartCard from "./charts/ChartCard";
+import ChartPlaceholder from "./charts/ChartPlaceholder";
 import "katex/dist/katex.min.css";
 import "./MessageList.css";
 
@@ -818,6 +819,13 @@ export default function MessageList({
       {messages.map((message) => {
         const hasWork = Boolean(message.work?.items.length);
         const hasCharts = Boolean(message.charts?.length);
+        const preparingCharts =
+          message.work?.items.filter(
+            (item): item is ToolWorkItem =>
+              item.type === "tool" &&
+              item.name === "render_chart" &&
+              item.status === "running",
+          ) ?? [];
 
         return (
           <div key={message.id} className={`message-row message-row--${message.role}`}>
@@ -836,6 +844,9 @@ export default function MessageList({
                   hasFinalAnswer={Boolean(message.content)}
                 />
               )}
+              {preparingCharts.map((tool) => (
+                <ChartPlaceholder key={tool.callId} />
+              ))}
               {message.charts?.map((chart) => (
                 <ChartCard key={chart.id} spec={chart.spec} />
               ))}

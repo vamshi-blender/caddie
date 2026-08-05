@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { MenuTwoLineIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { PanelLeftIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import Sidebar, { type SidebarChat } from "./Sidebar";
 import Composer from "./Composer";
 import Greeting from "./Greeting";
@@ -128,7 +128,13 @@ function resumeWorkClock(message: ChatMessage, resumedAt = Date.now()): ChatMess
   };
 }
 
-export default function ChatLayout({ userName }: { userName: string }) {
+export default function ChatLayout({
+  userName,
+  userEmail,
+}: {
+  userName: string;
+  userEmail: string;
+}) {
   const pathname = usePathname();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -410,7 +416,10 @@ export default function ChatLayout({ userName }: { userName: string }) {
           error: undefined,
         };
       });
-    } else if (event.type === "tool.started") {
+    } else if (
+      event.type === "tool.preparing" ||
+      event.type === "tool.started"
+    ) {
       updateAssistant(chatId, messageId, (message) => {
         const work = getWorkLog(message, event.startedAt);
         const existingIndex = work.items.findIndex(
@@ -422,7 +431,8 @@ export default function ChatLayout({ userName }: { userName: string }) {
           callId: event.callId,
           name: event.name,
           executor: event.executor,
-          arguments: event.arguments,
+          arguments:
+            event.type === "tool.started" ? event.arguments : {},
           status: "running",
           startedAt: event.startedAt,
         };
@@ -432,7 +442,14 @@ export default function ChatLayout({ userName }: { userName: string }) {
           const existing = items[existingIndex];
           items[existingIndex] =
             existing.type === "tool"
-              ? { ...existing, ...tool, status: "running" }
+              ? {
+                  ...existing,
+                  ...tool,
+                  // Keep timing from the early argument-generation event when
+                  // tool.started later supplies the completed arguments.
+                  startedAt: existing.startedAt,
+                  status: "running",
+                }
               : tool;
         }
 
@@ -896,6 +913,7 @@ export default function ChatLayout({ userName }: { userName: string }) {
           onToggleRail={handleToggleRail}
           open
           userName={userName}
+          userEmail={userEmail}
           chats={sidebarChats}
           activeChatId={chatStore.activeChatId}
           busy={busy}
@@ -920,7 +938,7 @@ export default function ChatLayout({ userName }: { userName: string }) {
                 aria-label="Open sidebar"
                 data-tooltip="Open sidebar"
               >
-                <HugeiconsIcon icon={MenuTwoLineIcon} size={20} />
+                <HugeiconsIcon icon={PanelLeftIcon} size={20} />
               </button>
             )}
             {(!isDesktop || railCollapsed) && (
@@ -997,6 +1015,7 @@ export default function ChatLayout({ userName }: { userName: string }) {
           variant="overlay"
           open={sidebarOpen}
           userName={userName}
+          userEmail={userEmail}
           chats={sidebarChats}
           activeChatId={chatStore.activeChatId}
           busy={busy}

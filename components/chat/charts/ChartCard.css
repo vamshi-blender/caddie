@@ -72,6 +72,113 @@
   width: 100%;
 }
 
+.chart-card--placeholder {
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-card--placeholder::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    color-mix(in srgb, var(--text-primary) 7%, transparent) 48%,
+    transparent 66%
+  );
+  transform: translateX(-100%);
+  animation: chart-placeholder-shimmer 1800ms ease-in-out infinite;
+}
+
+.chart-placeholder-line {
+  display: block;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-primary) 10%, var(--surface-raised));
+}
+
+.chart-placeholder-line--title {
+  width: 168px;
+  max-width: 42vw;
+  height: 14px;
+}
+
+.chart-placeholder-line--subtitle {
+  width: 112px;
+  max-width: 32vw;
+  height: 10px;
+}
+
+.chart-placeholder-toggle {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--surface-hover);
+}
+
+.chart-placeholder-toggle span {
+  width: 44px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.chart-placeholder-toggle span:first-child {
+  background: var(--surface-raised);
+}
+
+.chart-placeholder-plot {
+  position: relative;
+  height: 300px;
+  padding: 20px 20px 28px 42px;
+}
+
+.chart-placeholder-grid {
+  position: absolute;
+  inset: 20px 20px 28px 42px;
+  border-bottom: 1px solid var(--border-divider);
+  border-left: 1px solid var(--border-divider);
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--border-subtle) 0,
+    var(--border-subtle) 1px,
+    transparent 1px,
+    transparent 25%
+  );
+  opacity: 0.7;
+}
+
+.chart-placeholder-bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: clamp(8px, 3vw, 24px);
+  width: 100%;
+  height: 100%;
+}
+
+.chart-placeholder-bars span {
+  width: clamp(14px, 5%, 24px);
+  min-height: 18%;
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--text-primary) 12%, var(--surface-raised));
+}
+
+@keyframes chart-placeholder-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .chart-card-fallback {
   padding: var(--space-6) var(--space-4);
   border-radius: var(--radius-row);
@@ -153,6 +260,13 @@
   border: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .chart-card--placeholder::after {
+    animation: none;
+    display: none;
+  }
+}
+
 @media (max-width: 600px) {
   .chart-card {
     padding: var(--space-3);
@@ -161,5 +275,16 @@
   .chart-card-header {
     flex-direction: column;
     gap: var(--space-2);
+  }
+
+  .chart-placeholder-plot {
+    height: 240px;
+    padding-right: 8px;
+    padding-left: 30px;
+  }
+
+  .chart-placeholder-grid {
+    right: 8px;
+    left: 30px;
   }
 }

@@ -31,6 +31,9 @@ const PRIVATE_TOOL_ARGUMENTS = new Set([
 ]);
 const TOOL_ARGUMENT_STRING_LIMIT = 800;
 const TOOL_OUTPUT_PREVIEW_LIMIT = 1_200;
+// Chart arguments contain every category and value, so generating them can
+// take noticeably longer than executing render_chart itself.
+const EARLY_PROGRESS_TOOL_NAMES = new Set(["render_chart"]);
 
 interface StreamCaddieRunOptions {
   input: string | RunState<CaddieRunContext, typeof caddieAgent>;
@@ -246,6 +249,7 @@ export function streamCaddieRun({
           phase: "final_answer",
         };
         const segmentsByOutputIndex = new Map<number, TextSegment>();
+        const earlyToolStartedAt = new Map<string, number>();
 
         for await (const event of result) {
           if (isOpenAIResponsesRawModelStreamEvent(event)) {
@@ -266,6 +270,21 @@ export function streamCaddieRun({
               segmentsByOutputIndex.set(modelEvent.output_index, segment);
               currentSegment = segment;
               startsNewSegment = true;
+            } else if (
+              modelEvent.type === "response.output_item.added" &&
+              modelEvent.item.type === "function_call" &&
+              EARLY_PROGRESS_TOOL_NAMES.has(modelEvent.item.name)
+            ) {
+              const callId = modelEvent.item.call_id;
+              const startedAt = Date.now();
+              earlyToolStartedAt.set(callId, startedAt);
+              send({
+                type: "tool.preparing",
+                callId,
+                name: modelEvent.item.name,
+                executor: toolExecutor(modelEvent.item.name),
+                startedAt,
+              });
             }
 
             continue;
@@ -289,7 +308,8 @@ export function streamCaddieRun({
               send({
                 type: "tool.started",
                 ...toolCall,
-                startedAt: Date.now(),
+                startedAt:
+                  earlyToolStartedAt.get(toolCall.callId) ?? Date.now(),
               });
             }
             continue;
@@ -309,6 +329,7 @@ export function streamCaddieRun({
                 ...(output ? { output } : {}),
                 completedAt: Date.now(),
               });
+              earlyToolStartedAt.delete(callId);
             }
             // render_chart parks accepted specs on the run context; forward
             // any that appeared as their own event. Draining the queue keeps

@@ -22,7 +22,7 @@ export default async function ChatShellLayout({
 
   return (
     <>
-      <ChatLayout userName={displayNameFromEmail(session.email)} />
+      <ChatLayout userName={displayNameFromEmail(session.email)} userEmail={session.email} />
       {children}
     </>
   );
